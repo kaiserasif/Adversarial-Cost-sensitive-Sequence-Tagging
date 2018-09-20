@@ -345,7 +345,7 @@ class CostSensitiveSequenceTagger():
             avg_objectives[itr] = game_val
                         
         self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'                 
-        print ('game values: {}'.format(avg_objectives))
+        # print ('game values: {}'.format(avg_objectives))
 
     
     def predict (self, X):
