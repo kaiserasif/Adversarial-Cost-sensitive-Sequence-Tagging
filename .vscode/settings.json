@@ -1,0 +1,7 @@
+{
+    "python.pythonPath": "/Users/kaiser/anaconda2/envs/py36/bin/python",
+    "breadcrumbs.enabled": true,
+    "workbench.colorCustomizations": {
+        "statusBar.background":"#292929"
+    }
+}
