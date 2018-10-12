@@ -91,7 +91,7 @@ class CostSensitiveClassifier():
                 gradient =  reg_constant * self.theta # np.zeros(n_feature) if not L2 
                 for c in range(self.n_class): 
                     gradient[c*n_feature:(c+1)*n_feature] += p_check[c] * x.T
-                gradient[(y[i]-1)*n_feature:y[i]*n_feature] -= x.T
+                gradient[y[i]*n_feature:(y[i]+1)*n_feature] -= x.T
             
                 ## ada grad
                 square_g += np.square(gradient)    
