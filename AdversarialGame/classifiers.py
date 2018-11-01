@@ -121,8 +121,9 @@ class CostSensitiveClassifier():
             if np.all(avg_grad <= self.grad_tol):
                 self.termination_condition = 'optimization ended: maximum gradient component {} after {} iteration'.format(avg_grad.max(), itr)
                 break
-            
-        self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'    
+
+        if self.termination_condition == '':   
+            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'    
             
         print ('game values: {}'.format(avg_objectives))
     
@@ -159,7 +160,7 @@ class CostSensitiveSequenceTagger():
                  game_val_cv = 1.e-3, # coefficient of variation (std/mean) of game values
                  grad_tol = 1e-10, # threshold of gradient of each parameter
                  itr_to_chk = 20, # game values to check for coefficient of variation
-                 verbose = 0
+                 verbose = 1
                  ):
     
     
@@ -342,10 +343,24 @@ class CostSensitiveSequenceTagger():
                 self.transition_theta -= rate * transition_gradient / np.sqrt(square_transition_g)
  
                 game_val += sum(v)
+
+            # stopping criteria
+            # or evaluate expected loss over all samples again here with O(n_sample) time    
+            game_val /= n_sample # average
             avg_objectives[itr] = game_val
-                        
-        self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'                 
-        # print ('game values: {}'.format(avg_objectives))
+            
+            avg_grad = avg_grad / n_sample
+            if itr > self.itr_to_chk and  abs(np.std(avg_objectives[-self.itr_to_chk:]) / np.mean(
+                avg_objectives[-self.itr_to_chk:])) <= self.game_val_cv:
+                self.termination_condition = 'optimization ended: average game value {} after {} iteration'.format(game_val, itr)
+                break
+            if np.all(avg_grad <= self.grad_tol):
+                self.termination_condition = 'optimization ended: maximum gradient component {} after {} iteration'.format(avg_grad.max(), itr)
+                break
+
+        if self.termination_condition == '':     
+            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'                 
+        print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
 
     
     def predict (self, X):
