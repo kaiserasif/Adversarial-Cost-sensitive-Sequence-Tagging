@@ -1,3 +1,5 @@
+import sys, os
+
 import numpy as np
 from sklearn import metrics
 
@@ -6,7 +8,13 @@ from analysis.dataloader import load_hapt_data
 
 def run():
     # load data, scale may not be needed, get number of classes, make start at 0
-    X_tr, y_tr, X_ts, y_ts = load_hapt_data()
+    
+    if len(sys.argv) > 1:
+        data_dir = os.path.abspath(sys.argv[1])
+        X_tr, y_tr, X_ts, y_ts = load_hapt_data(data_dir)
+    else:
+        X_tr, y_tr, X_ts, y_ts = load_hapt_data()
+    
     # find n_class and min_y
     ys = np.unique( np.concatenate(y_tr + y_ts) )
     min_y = min(ys)
