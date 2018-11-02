@@ -24,7 +24,7 @@ def run():
 
     # now create classifier and train
     cost_matrix = 1 - np.eye(n_class)
-    ast = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=100)
+    ast = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=100, verbose=2)
     ast.fit(X_tr, y_tr)
 
     # predict

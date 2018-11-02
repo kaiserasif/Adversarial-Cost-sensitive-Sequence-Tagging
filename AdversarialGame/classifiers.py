@@ -184,6 +184,8 @@ class CostSensitiveSequenceTagger():
         self.max_itr = max_itr
         
     def solve_pairwise_p_check(self, sequence):
+        if self.verbose >= 3: 
+            start_time = datetime.datetime.now()
         T = len(sequence)
         
         psi_pairs = self.transition_theta # there's no other weights. 
@@ -235,7 +237,16 @@ class CostSensitiveSequenceTagger():
                     for a in range(self.n_class):
                         lhs += variables[offset + a * self.n_class + b]
                     model.addConstr(lhs == sum(variables[offset + (self.n_class**2) + b*self.n_class : offset + (self.n_class**2) + (b+1)*self.n_class]), "cprt{}y{}".format(t, b))
+
+        if self.verbose >= 3:
+            print ('model build time: {}'.format((datetime.datetime.now() - start_time) ) )
+            start_time = datetime.datetime.now()
+
         model.optimize()
+
+        if self.verbose >= 3:
+            print ('model solve time: {}'.format((datetime.datetime.now() - start_time) ) )
+            start_time = datetime.datetime.now()
     #     print(model.display())
     #     print(model.getObjective().getValue(), model.getVars())
         # return [(v.varName, v.x) for v in model.getVars()] #, model.getObjective().getValue()
@@ -255,9 +266,14 @@ class CostSensitiveSequenceTagger():
                 p = vars[(T-2)*(self.n_class**2) + a*self.n_class + b]
                 marginal_pcheck[i][b] += p
                 
+        if self.verbose >= 3:
+            print ('model retrieve time: {}'.format((datetime.datetime.now() - start_time) ) )
+            start_time = datetime.datetime.now()
+
         return v, pairwise_pcheck, marginal_pcheck
     
     def compute_feature_expectations(self, x, y, pairwise_pcheck, marginal_pcheck):
+        if self.verbose >= 2: start_time = datetime.datetime.now()
         T = len(x)
         pcheck_feat = np.zeros(self.theta.shape)
         empirical_feat = np.zeros(self.theta.shape)
@@ -273,7 +289,7 @@ class CostSensitiveSequenceTagger():
                 for a in range(self.n_class):
                     for b in range(self.n_class):
                         transition_pcheck_feat[a, b] += pairwise_pcheck[t][a][b]
-        
+        if self.verbose >= 2: print( 'time to compute feature potentials: {}'.format(datetime.datetime.now() - start_time) )
         return pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat
 
     
@@ -318,16 +334,17 @@ class CostSensitiveSequenceTagger():
         for itr in range(self.max_itr):
             if count > self.max_update: break
             if self.verbose > 0:
-                print("epoch: ", itr)
+                print("epoch: ", itr); sys.stdout.flush()
                  
             idx = np.random.permutation(n_sample) # range(n_sample) # 
             avg_grad = np.zeros(self.theta.shape)
             game_val = 0
  
             seen = 0
+            start_time = datetime.datetime.now()
             for i in idx:
                 x = X[i]
-                start_time = datetime.datetime.now()
+                
                 v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
                 pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat \
                     = self.compute_feature_expectations(x, Y[i], pairwise_pcheck, marginal_pcheck)
@@ -343,7 +360,12 @@ class CostSensitiveSequenceTagger():
                 self.transition_theta -= rate * transition_gradient / np.sqrt(square_transition_g)
  
                 game_val += sum(v)
-
+                avg_grad += np.abs(gradient) # abs() due to stochastic. batch shouldn't need it.
+                count += 1
+                if self.verbose > 0 and count > 0 and count % 100 == 0:
+                    print("{} updates, average time per lp: {} ".format(count, (datetime.datetime.now()-start_time)/min(count, 100) ))
+                    start_time = datetime.datetime.now()
+                    sys.stdout.flush()
             # stopping criteria
             # or evaluate expected loss over all samples again here with O(n_sample) time    
             game_val /= n_sample # average
@@ -361,7 +383,7 @@ class CostSensitiveSequenceTagger():
         if self.termination_condition == '':     
             self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'                 
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
-
+        print (self.termination_condition)
     
     def predict (self, X):
         Y = []
