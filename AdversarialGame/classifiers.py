@@ -183,11 +183,9 @@ class CostSensitiveSequenceTagger():
     def set_epoch(self, max_itr):
         self.max_itr = max_itr
         
-    def solve_pairwise_p_check(self, sequence):
-        if self.verbose >= 3: 
-            start_time = datetime.datetime.now()
+    def build_gurobi_model(self, sequence):
+        ''' build a gurobi model from scratch. slower.'''
         T = len(sequence)
-        
         psi_pairs = self.transition_theta # there's no other weights. 
         
         model = gp.Model("p_check_solver")
@@ -238,6 +236,109 @@ class CostSensitiveSequenceTagger():
                         lhs += variables[offset + a * self.n_class + b]
                     model.addConstr(lhs == sum(variables[offset + (self.n_class**2) + b*self.n_class : offset + (self.n_class**2) + (b+1)*self.n_class]), "cprt{}y{}".format(t, b))
 
+        return model
+
+
+    def make_gurobi_model_of_len(self, T):
+
+        model = gp.Model("p_check_solver")
+        model.setParam('OutputFlag', 0)
+        
+        # add variables
+        variables = []
+        for i in range(T):
+            variables.append( model.addVar(lb=-gp.GRB.INFINITY, name="v_" + str(i) ) )
+        for i in range(1, T): # y1y2, y2y3 : starts from 2nd index
+            for a in range(self.n_class):
+                for b in range(self.n_class):
+                    variables.append( model.addVar(name="y_{}_p_({}{})".format(i, a, b) ) )
+        # set objective
+        model.setObjective(sum(variables[:T]), gp.GRB.MAXIMIZE)
+
+        # add first node's constraints
+        for yhat in range(self.n_class):
+            lhs = 0
+            for a in range(self.n_class):
+                for b in range(self.n_class):
+                    var_idx = a * self.n_class + b
+                    lhs += 1 * variables[T + var_idx] # update this coeff 1
+            model.addConstr(lhs >= variables[0], "ct{}y{}".format(0, yhat) )
+        # other nodes
+        for t in range(1, T):
+            # add the inequality, cost matrix
+            for yhat in range(self.n_class): # for each yhat add the constraint
+                lhs = 0
+                for a in range(self.n_class):
+                    for b in range(self.n_class):
+                        var_idx = (t-1)*(self.n_class**2) + a*self.n_class + b
+                        lhs += 1 * variables[T + var_idx] # update this coeff 1
+                model.addConstr(lhs >= variables[t], "ct{}y{}".format(t, yhat) )
+
+            # add the probability constraint
+            model.addConstr(sum(variables[T + (t-1) * (self.n_class**2) : T + t * (self.n_class**2) ]) == 1, "ceqt{}".format(t))
+            # add the pairwise constraints, both previous and next steps needed
+            if t < T - 1:
+                for b in range(self.n_class):
+                    offset = T + (t-1) * (self.n_class**2)
+                    lhs = 0
+                    for a in range(self.n_class):
+                        lhs += variables[offset + a * self.n_class + b]
+                    model.addConstr(lhs == sum(variables[offset + (self.n_class**2) + b*self.n_class : offset + (self.n_class**2) + (b+1)*self.n_class]), "cprt{}y{}".format(t, b))
+
+        model.update()
+        
+        # save the model to the hashmap
+        self.gurobimodels[T] = (variables, model)
+
+
+    def get_gurobi_model(self, sequence):
+        ''' get a gurobi model of the same length from hash. update coeff. faster.'''
+        
+        T = len(sequence)
+        psi_pairs = self.transition_theta # there's no other weights. 
+        
+        # make one if same length lp doesn't exist
+        if T not in self.gurobimodels:
+            self.make_gurobi_model_of_len(T)
+
+        # retrieve a model of the same length
+        variables, model = self.gurobimodels[T]
+        
+        # add first node's constraints
+        psi = np.dot(sequence[0,:], self.theta)
+        for yhat in range(self.n_class):
+            constr = model.getConstrByName("ct{}y{}".format(0, yhat))
+            for a in range(self.n_class):
+                for b in range(self.n_class):
+                    var_idx = a * self.n_class + b
+                    model.chgCoeff(constr, variables[T + var_idx], 
+                        (self.cost_matrix[yhat, a] + psi[a])
+                    )
+        # other nodes
+        for t in range(1, T):
+            psi = np.dot(sequence[t,:], self.theta)
+            # add the inequality, cost matrix
+            for yhat in range(self.n_class): # for each yhat add the constraint
+                constr = model.getConstrByName("ct{}y{}".format(t, yhat))
+                for a in range(self.n_class):
+                    for b in range(self.n_class):
+                        var_idx = (t-1)*(self.n_class**2) + a*self.n_class + b
+                        model.chgCoeff(constr, variables[T + var_idx], 
+                            ( self.cost_matrix[yhat, b] + psi[b] + psi_pairs[a, b]) 
+                        )
+        model.update()
+
+        return model
+    
+
+    def solve_pairwise_p_check(self, sequence):
+        if self.verbose >= 3: 
+            start_time = datetime.datetime.now()
+        T = len(sequence)
+        
+        # model = self.build_gurobi_model(sequence)
+        model = self.get_gurobi_model(sequence)
+
         if self.verbose >= 3:
             print ('model build time: {}'.format((datetime.datetime.now() - start_time) ) )
             start_time = datetime.datetime.now()
@@ -273,7 +374,6 @@ class CostSensitiveSequenceTagger():
         return v, pairwise_pcheck, marginal_pcheck
     
     def compute_feature_expectations(self, x, y, pairwise_pcheck, marginal_pcheck):
-        if self.verbose >= 2: start_time = datetime.datetime.now()
         T = len(x)
         pcheck_feat = np.zeros(self.theta.shape)
         empirical_feat = np.zeros(self.theta.shape)
@@ -289,7 +389,7 @@ class CostSensitiveSequenceTagger():
                 for a in range(self.n_class):
                     for b in range(self.n_class):
                         transition_pcheck_feat[a, b] += pairwise_pcheck[t][a][b]
-        if self.verbose >= 2: print( 'time to compute feature potentials: {}'.format(datetime.datetime.now() - start_time) )
+        
         return pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat
 
     
@@ -331,6 +431,10 @@ class CostSensitiveSequenceTagger():
         count = 0
         itr_start_time = datetime.datetime.now()
         n_class = self.n_class
+
+        # gurobi model cache for faster build time
+        self.gurobimodels = {}
+
         for itr in range(self.max_itr):
             if count > self.max_update: break
             if self.verbose > 0:
@@ -384,6 +488,8 @@ class CostSensitiveSequenceTagger():
             self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'                 
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
         print (self.termination_condition)
+
+        del self.gurobimodels
     
     def predict (self, X):
         Y = []
