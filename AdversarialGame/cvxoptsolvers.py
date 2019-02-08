@@ -23,6 +23,7 @@ class PairwiseJointLPSovler:
 
         self.lp_cache = {}
 
+
     def _get_lp_for_len(self, T):
         """
         Create a lp for the length T and n_class classes
@@ -40,7 +41,8 @@ class PairwiseJointLPSovler:
             # total T*y + (n_vars - T) rows, 
             n_rows = T * self.n_class + (n_vars - T)
             G = cvxopt.spmatrix([],[],[], ( n_rows, n_vars ) )
-            H = cvxopt.matrix([0.]*n_rows)
+            # G = cvxopt.matrix(0., ( n_rows, n_vars ) ) # doesn't matter probably
+            H = cvxopt.matrix(0., ( n_rows, 1 ) )
             # 1 for T*y v's, then -py for T-1 * y^2 vars
             for t in range(T):
                 for yhat in range(self.n_class):
@@ -51,15 +53,16 @@ class PairwiseJointLPSovler:
             # A has two sets of matrices.. T-1 probability-simplex constraints, sums to 1
             # then T-2 intermediate nodes' Y equality constraints
             B = cvxopt.matrix( [1.]*(T-1) + [0]*((T-2)*self.n_class) )
-            A = cvxopt.matrix( 0., ((T-1) + (T-2) * self.n_class, n_vars) )
+            A = cvxopt.spmatrix([],[],[], ((T-1) + (T-2) * self.n_class, n_vars) )
+            # A = cvxopt.matrix( 0., ((T-1) + (T-2) * self.n_class, n_vars) ) # doesn't matter probably
             for t in range(T-1):
                 A[t, T + t * self.n_class**2 : T + (t+1) * self.n_class**2 ] = 1
                 # for \sum_y1 py1y2 = \sum_y3 py2y3
                 # for t=0, compute for y(t=1), using t = 0, 1, and 2
                 if t < T - 2:
-                    var_offset = T + t * self.n_class ** 2 # T-2 pcheck pairse skip
+                    var_offset = T + t * self.n_class ** 2 # T-2 pcheck pairs skip
                     for j in range(self.n_class):
-                        row = T - 1 + t * self.n_class + j
+                        row = T - 1 + t * self.n_class + j # for each j, the middle y's classes
                         # \sum_i (i, j) = \sum_k (j, k) 
                         # p(i, j) = 1 -> (i * nclass + j) = 1
                         # \sum_k (j, k) = \sum_i (j, i) = (j * n_class + i) = -1
@@ -71,9 +74,11 @@ class PairwiseJointLPSovler:
         
         return self.lp_cache[T]
 
+
     def _make_lp(self, x, theta, transition_theta):
         """
         Make an LP using the features x, cost_matrix, and parameters thetas
+        v1 .... -psi(y1, x) -psi(y1,x)... <= 0
         """
         T = len(x)
         obj, G, H, A, B = self._get_lp_for_len(T)
@@ -89,7 +94,7 @@ class PairwiseJointLPSovler:
             for y1 in range (self.n_class):
                 for y2 in range (self.n_class):
                     G[yhat, T + y1 * self.n_class + y2] = \
-                        self.cost_matrix[yhat, y1] + psi[0, y1]
+                        - self.cost_matrix[yhat, y1] - psi[0, y1]
 
         # rest of the time-stamps
         for t in range(1, T):
@@ -98,24 +103,27 @@ class PairwiseJointLPSovler:
                 for yprev in range(self.n_class):
                     for y in range(self.n_class):
                         c = T + (t-1) * self.n_class ** 2 + yprev * self.n_class + y
-                        G[r, c] = self.cost_matrix[yhat, y] + \
-                            psi[t, y] + transition_theta[yprev, y] # pairwise features are only boolean
+                        G[r, c] = - self.cost_matrix[yhat, y] - \
+                            psi[t, y] - transition_theta[yprev, y] # pairwise features are only boolean
 
         return obj, G, H, A, B
 
+
     def solve_lp(self, x, theta, transition_theta):
+
         obj, G, H, A, B = self._make_lp(x, theta, transition_theta)
-        res = cvxopt.solvers.lp(obj, G, H, A, B)
+
+        # print(obj.size, G.size, H.size, A.size, B.size)
+        # with open('matrices.txt', 'a') as f:
+        #     for mat in (obj, G, H, A, B):
+        #         np.savetxt(f, np.array(cvxopt.matrix(mat)), fmt='%.2e', delimiter=',')
+        #         f.write("\n-\n")
+        #     f.write("-"*10 + "\n\n")
+
+        res = cvxopt.solvers.lp(obj, G, H, A, B, solver='glpk')
         if res['status'] != 'optimal':
             print(res)
             exit
-        return res['primal objective'], res['x']
+        # print (res['x'].size)
+        return -res['primal objective'], np.array(res['x'])[:, 0]
 
-
-if "__main__" == __name__:
-    pjlp = PairwiseJointLPSovler(2, 1 - np.eye(2))
-    for obj in pjlp._get_lp_for_len(4):
-        if obj.size[1] > 7:
-            for i in range(0, obj.size[1], 6):
-                print(obj[:, i:i+6])
-        else: print(obj)

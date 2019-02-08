@@ -117,6 +117,9 @@ class SingleOracle:
 
         return previous_min_gamevalue, phat, pairwise_pcheck, marginal_pcheck
 
+    def solve_for_p_check(self, sequence):
+        pass
+
 if "__main__" == __name__:
     import numpy as np
     n_class = 3

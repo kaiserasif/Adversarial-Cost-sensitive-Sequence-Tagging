@@ -8,6 +8,7 @@ import numpy as np
 from scipy.optimize import minimize, check_grad
 import sys
 from .zerosum import ZerosumGame
+from .cvxoptsolvers import PairwiseJointLPSovler as Cvxsolver
 import gurobipy as gp
 import datetime
 import copy
@@ -43,6 +44,7 @@ class CostSensitiveClassifier():
         
         self.average_objective = []
         self.termination_condition = ''
+
         
     def set_epoch(self, max_itr):
         self.max_itr = max_itr
@@ -170,7 +172,8 @@ class CostSensitiveSequenceTagger():
                  grad_tol = 1e-10, # threshold of gradient of each parameter
                  itr_to_chk = 20, # game values to check for coefficient of variation
                  batch_size = 1, # do a minibatch stochastic update
-                 verbose = 1
+                 verbose = 1,
+                 solver='gurobi' # debugging purpose... compare gplk-cvxopt vs gurobi
                  ):
     
     
@@ -197,6 +200,9 @@ class CostSensitiveSequenceTagger():
 
         # cache for linprog models
         self.lineprog_models = {}
+
+        self.sovler = solver
+
         
     def set_epoch(self, max_itr):
         self.max_itr = max_itr
@@ -230,62 +236,6 @@ class CostSensitiveSequenceTagger():
         pass
     
         
-    # def build_gurobi_model(self, sequence):
-    #     ''' build a gurobi model from scratch. slower.'''
-    #     T = len(sequence)
-    #     psi_pairs = self.transition_theta # there's no other weights. 
-        
-    #     model = gp.Model("p_check_solver")
-    #     model.setParam('OutputFlag', 0)
-        
-    #     # add variables
-    #     variables = []
-    #     for i in range(T):
-    #         variables.append( model.addVar(lb=-gp.GRB.INFINITY, name="v_" + str(i) ) )
-    #     for i in range(1, T): # y1y2, y2y3 : starts from 2nd index
-    #         for a in range(self.n_class):
-    #             for b in range(self.n_class):
-    #                 variables.append( model.addVar(name="y_{}_p_({}{})".format(i, a, b) ) )
-    #     # set objective
-    #     model.setObjective(sum(variables[:T]), gp.GRB.MAXIMIZE)
-    #     # add first node's constraints
-    #     psi = np.dot(sequence[0,:], self.theta)
-    #     for yhat in range(self.n_class):
-    #         lhs = 0
-    #         for a in range(self.n_class):
-    #             for b in range(self.n_class):
-    #                 var_idx = a * self.n_class + b
-    #                 lhs += (self.cost_matrix[yhat, a] +
-    #                         psi[a]
-    #                         ) * variables[T + var_idx]
-    #         model.addConstr(lhs >= variables[0], "ct{}y{}".format(0, yhat) )
-    #     # other nodes
-    #     for t in range(1, T):
-    #         psi = np.dot(sequence[t,:], self.theta)
-    #         # add the inequality, cost matrix
-    #         for yhat in range(self.n_class): # for each yhat add the constraint
-    #             lhs = 0
-    #             for a in range(self.n_class):
-    #                 for b in range(self.n_class):
-    #                     var_idx = (t-1)*(self.n_class**2) + a*self.n_class + b
-    #                     lhs += ( self.cost_matrix[yhat, b] +
-    #                              psi[b] + psi_pairs[a, b]
-    #                         ) * variables[T + var_idx]
-    #             model.addConstr(lhs >= variables[t], "ct{}y{}".format(t, yhat) )
-    #         # add the probability constraint
-    #         model.addConstr(sum(variables[T + (t-1) * (self.n_class**2) : T + t * (self.n_class**2) ]) == 1, "ceqt{}".format(t))
-    #         # add the pairwise constraints, both previous and next steps needed
-    #         if t < T - 1:
-    #             for b in range(self.n_class):
-    #                 offset = T + (t-1) * (self.n_class**2)
-    #                 lhs = 0
-    #                 for a in range(self.n_class):
-    #                     lhs += variables[offset + a * self.n_class + b]
-    #                 model.addConstr(lhs == sum(variables[offset + (self.n_class**2) + b*self.n_class : offset + (self.n_class**2) + (b+1)*self.n_class]), "cprt{}y{}".format(t, b))
-
-    #     return model
-
-
     def make_gurobi_model_of_len(self, T):
 
         model = gp.Model("p_check_solver")
@@ -389,18 +339,26 @@ class CostSensitiveSequenceTagger():
         model.optimize()
         if model.Status != gp.GRB.OPTIMAL: print('Gurobi solution status: {}'.format(model.Status) )
         
-        vars = [v.x for v in model.getVars()]
+        vars = np.array([v.x for v in model.getVars()])
         return model.getObjective().getValue(), vars
 
     def solve_pairwise_p_check(self, sequence, return_objective_only=False):
         
         T = len(sequence)
         
-        obj, vars = self.solve_lp(sequence)
+        if self.sovler == 'gurobi':
+            obj, vars = self.solve_lp(sequence)
+        elif self.sovler == 'cvxopt':
+            obj, vars = self.cvxsolver.solve_lp(sequence, self.theta, self.transition_theta)
         
-        v = vars[:T]
+        # v = vars[:T]
         vars = vars[T:]
-        if return_objective_only: return v # for lbfgs's objective func, we dont need probabilities
+        if return_objective_only: return obj # for lbfgs's objective func, we dont need probabilities
+
+        # # normalize vars, sum is > 1
+        # nys = self.n_class ** 2
+        # for t in range(T-1):
+        #     vars[t * nys : (t+1) * nys] /= vars[t * nys : (t+1) * nys].sum()
 
         pairwise_pcheck = [ [ [None]*self.n_class for _ in range(self.n_class) ] for _ in range(T-1) ] # T-1 pairs
         marginal_pcheck = [ [0]*self.n_class for _ in range(T) ]
@@ -418,7 +376,7 @@ class CostSensitiveSequenceTagger():
                 p = vars[(T-2)*(self.n_class**2) + a*self.n_class + b]
                 marginal_pcheck[T-1][b] += p
                 
-        return v, pairwise_pcheck, marginal_pcheck
+        return obj, pairwise_pcheck, marginal_pcheck
     
     def compute_feature_expectations(self, x, y, pairwise_pcheck, marginal_pcheck):
         T = len(x)
@@ -438,6 +396,30 @@ class CostSensitiveSequenceTagger():
                         transition_pcheck_feat[a, b] += pairwise_pcheck[t][a][b]
         
         return pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat
+
+    def _compute_gradient(self, x, y):
+        """
+        Compute the stochastic gradient of the single sample
+        """
+        v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
+        pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat \
+            = self.compute_feature_expectations(x, y, pairwise_pcheck, marginal_pcheck)
+        # empirical_expectation = self.compute_empirical_feature_potential(x, Y[i]) # for game value computation
+        empirical_expectation = (empirical_feat * self.theta).sum() \
+            + (transition_empirical_feat * self.transition_theta).sum()
+
+        gradient = pcheck_feat - empirical_feat + self.reg_constant * self.theta
+        transition_gradient = transition_pcheck_feat - transition_empirical_feat + self.reg_constant * self.transition_theta
+        
+        # add regularization and subtract empirical feature expectation
+        v += ( 
+            self.reg_constant * 0.5 * ( np.linalg.norm(self.theta)**2 + np.linalg.norm(self.transition_theta)**2 ) 
+            - empirical_expectation
+        )
+
+        return v, gradient, transition_gradient
+        
+
 
     
     def fit (self, X, Y):
@@ -459,17 +441,16 @@ class CostSensitiveSequenceTagger():
              
         if self.cost_matrix is None:
             self.cost_matrix =  1 - np.identity(self.n_class)
+
+        # solver using cvxopt package, could've been in init, 
+        # but updated n_class and cost_matrix needed
+        self.cvxsolver = Cvxsolver(self.n_class, self.cost_matrix)
      
         self.theta = np.random.rand(n_feature, self.n_class) - 0.5 
         self.transition_theta = np.random.rand(self.n_class, self.n_class) - 0.5 
-        # self.theta = np.zeros((n_feature, self.n_class))
-        # self.transition_theta = np.zeros((self.n_class, self.n_class))
              
         avg_objectives = np.zeros(self.max_itr)
-        per_update_objective = np.zeros(self.max_itr * n_sample)
 
-        reg_constant = self.reg_constant 
-     
         # adagrad parameters
         rate = self.learning_rate # 0.5
         square_g = np.zeros( self.theta.shape ) # + 1e-20 # avoid zero division
@@ -477,9 +458,8 @@ class CostSensitiveSequenceTagger():
         # aditionally for ada-delta
         delta_g = np.zeros( self.theta.shape ) 
         delta_transition_g = np.zeros( self.transition_theta.shape ) 
-        eps = 1e-8
+        eps = 1e-8 # ada-delta is susceptible to eps... weird... too low makes a very low learning rate 
         
-     
         if self.verbose > 0:
             print(n_feature, " features,", n_sample, " samples,", self.max_itr, " epochs")
 
@@ -488,54 +468,31 @@ class CostSensitiveSequenceTagger():
         if self.batch_size == n_sample and self.learning_rate == 0:
             self.batch_optimization(X, Y)
             return 
-
-
      
-        count = 0
-        itr_start_time = datetime.datetime.now()
-        n_class = self.n_class
+        update_count = 0
 
         for itr in range(self.max_itr):
-            if count > self.max_update: break
-            if self.verbose >= 2:
-                print("epoch: ", itr); sys.stdout.flush()
+            if update_count >= self.max_update: break
+            if self.verbose >= 2: print("epoch: ", itr); sys.stdout.flush()
                  
-            idx = np.random.permutation(n_sample) # range(n_sample) # 
+            idx = np.random.permutation(n_sample) 
             avg_grad = np.zeros(self.theta.shape)
             batch_game_val = 0
  
             # mini_batch gradient
-            cur_batch = 0
+            cur_batch = 0 # current count, used to determine if batch size met, or last batch which could be smaller
             batch_gradient = np.zeros( self.theta.shape )
             batch_transition_gradient = np.zeros( self.transition_theta.shape )
 
-            start_time = datetime.datetime.now()
             for i in idx:
-                count += 1
+
                 cur_batch += 1
-                x = X[i]
+                x, y = X[i], Y[i]
                 
-                v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
-                pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat \
-                    = self.compute_feature_expectations(x, Y[i], pairwise_pcheck, marginal_pcheck)
-                # empirical_expectation = self.compute_empirical_feature_potential(x, Y[i]) # for game value computation
-                empirical_expectation = sum(sum(empirical_feat * self.theta)) + sum(sum(transition_empirical_feat * self.transition_theta))
+                game_val, gradient, transition_gradient = self._compute_gradient(x, y)
 
-                # if count > 10:
-                #     print(empirical_expectation, empirical_feat, transition_empirical_feat)
-                #     print ( sum(sum(empirical_feat * self.theta)) + sum(sum(transition_empirical_feat * self.transition_theta))  )
-                #     return 
-
-                gradient = pcheck_feat - empirical_feat + reg_constant * self.theta
-                transition_gradient = transition_pcheck_feat - transition_empirical_feat + reg_constant * self.transition_theta
-                # gradient, transition_gradient = self.compute_gradient_from_obj(x, Y[i], delta=1e-10)
-                
-                game_val = ( sum(v) 
-                    + reg_constant * 0.5 * ( sum(sum(self.theta**2)) + sum(sum(self.transition_theta**2)) ) 
-                    - empirical_expectation
-                )
                 batch_game_val += game_val
-                per_update_objective[count-1] = game_val 
+                avg_grad += np.abs(gradient) # abs() due to stochastic. batch shouldn't need it.
 
                 # modifying existing stochastic gradient to minibatch gradient
                 if self.batch_size > 1: # otherwise doesn't affect stochastic code
@@ -549,14 +506,6 @@ class CostSensitiveSequenceTagger():
                         batch_transition_gradient.fill(0)
                     else:
                         continue # accumulate gradients
-
-                if True and itr == 100 and count % 8 == 0: # log a gradient comparison
-                    tmp_g, tmp_tg = self.compute_gradient_from_obj(x, Y[i], delta=1e-10)
-                    tmp = np.column_stack([self.theta.flatten(), tmp_g.flatten(), gradient.flatten(), tmp_g.flatten() - gradient.flatten()])
-                    np.savetxt("gradient_debug.csv", tmp, delimiter=',')
-                    tmp = np.column_stack([self.transition_theta.flatten(), tmp_tg.flatten(), transition_gradient.flatten(), tmp_tg.flatten() - transition_gradient.flatten()])
-                    np.savetxt("transition_gradient_debug.csv", tmp, delimiter=',')
-                    # return 
 
                 ## ada grad or ada delta
                 if (self.learning_rate > 0): # then ada_grad
@@ -579,12 +528,8 @@ class CostSensitiveSequenceTagger():
                     self.theta -= cur_delta_g
                     self.transition_theta -= cur_delta_tr_g
  
-                avg_grad += np.abs(gradient) # abs() due to stochastic. batch shouldn't need it.
-                if self.verbose > 0 and count % 500 == 0:
-                    print("{} updates, average time per lp: {} ".format(count, (datetime.datetime.now()-start_time)/min(count, 100) ))
-                    # print(marginal_pcheck, pairwise_pcheck)
-                    start_time = datetime.datetime.now()
-                    sys.stdout.flush()
+                update_count += 1
+                
             # stopping criteria
             # or evaluate expected loss over all samples again here with O(n_sample) time    
             avg_objectives[itr] = batch_game_val / n_sample
@@ -602,7 +547,6 @@ class CostSensitiveSequenceTagger():
         if self.termination_condition == '':     
             self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'                 
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
-        print ('individual game values: {}'.format(per_update_objective[max(0,count-10):count]))
         self.average_objective = avg_objectives[:itr] # per_update_objective[:count] # avg_objectives[:itr]
         print (self.termination_condition)
 
@@ -618,11 +562,13 @@ class CostSensitiveSequenceTagger():
             self.transition_theta = theta[-self.n_class:]
             obj = 0
             for x, y in zip(X, Y):
-                obj += sum ( self.solve_pairwise_p_check(x, return_objective_only=True) )
+                obj += self.solve_pairwise_p_check(x, return_objective_only=True)
                 obj -= self.compute_empirical_feature_potential(x, y) 
+            obj /= len(Y)
             obj += self.reg_constant * 0.5 * ( sum(sum(self.theta**2)) + sum(sum(self.transition_theta**2)) ) 
             # print (obj)
             return obj
+
         # gradient function
         def der(theta):
             theta = theta.reshape(-1, self.n_class)
@@ -631,7 +577,7 @@ class CostSensitiveSequenceTagger():
             gradient = np.zeros( self.theta.shape )
             transition_gradient = np.zeros( self.transition_theta.shape )
             for (x, y) in zip(X, Y):
-                v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
+                _, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
                 pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat \
                         = self.compute_feature_expectations(x, y, pairwise_pcheck, marginal_pcheck)
                 gradient += pcheck_feat - empirical_feat 
@@ -651,13 +597,13 @@ class CostSensitiveSequenceTagger():
         theta = np.concatenate((self.theta, self.transition_theta), axis=0).flatten()
 
         # check gradient 
-        for _ in range(5):
-            print (check_grad(fun, der, np.random.random(theta.shape) - 0.5 ))
-        # check probabilities
-        v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(X[0])
-        for t in range(len(Y[0])):
-            pr = [i for sub in pairwise_pcheck[t] for i in sub] if t < len(Y[0]) - 1 else []
-            print("node:", t, pr, sum(pr), marginal_pcheck[t], sum(marginal_pcheck[t]))
+        # for _ in range(5):
+        #     print (check_grad(fun, der, np.random.random(theta.shape) - 0.5 ))
+        # # check probabilities
+        # v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(X[0])
+        # for t in range(len(Y[0])):
+        #     pr = [i for sub in pairwise_pcheck[t] for i in sub] if t < len(Y[0]) - 1 else []
+        #     print("node:", t, pr, sum(pr), marginal_pcheck[t], sum(marginal_pcheck[t]))
 
         res = minimize(fun, theta, jac=der, tol=1e-6, callback=callback_fun, options={'maxiter': self.max_itr})
         print (check_grad(fun, der, res.x))
@@ -672,46 +618,55 @@ class CostSensitiveSequenceTagger():
     
     
     def predict (self, X):
+        """
+        Find Y_hats using Vterbi
+        Parameters:
+            X : [sample][state][feature] list of 2-D numpy array
+        Returns:
+            Y: [sample][state] list of 1-D numpy array
+        """
+
         Y = []
-        # phat using viterbi
+        
         n_class = self.n_class
         n = len(X)
         pair_pot = self.transition_theta 
         theta = self.theta
+
         for i in range(n): # n samples
             x = X[i]
             T = len(x)
             
-            cumu_pot = [[0]*n_class for _ in range(T)]
-            history = copy.deepcopy(cumu_pot) # for dimension
+            # cumu_pot = [[0]*n_class for _ in range(T)]
+            cumu_pot = np.zeros((T, n_class))
+            history = np.zeros(cumu_pot.shape, dtype=int) 
             
-            # initial state
-            for c in range(n_class):
-                cumu_pot[0][c] = np.dot(x[0], theta[:, c])
+            cumu_pot[0, :] = np.dot(x[0], theta)
                 
             # rest of the sequence
             for t in range(1, T):
                 x_pots = np.dot(x[t], theta)
                 for c in range(n_class):
                     hist = 0
-                    max_pot = cumu_pot[t-1][hist] + pair_pot[hist][c]
+                    max_pot = cumu_pot[t-1, hist] + pair_pot[hist, c]
                     for prev_c in range(n_class):
-                        prev_pot = cumu_pot[t-1][prev_c] + pair_pot[prev_c][c]
+                        prev_pot = cumu_pot[t-1, prev_c] + pair_pot[prev_c, c]
                         if prev_pot > max_pot:
                             max_pot = prev_pot
                             hist = prev_c
-                    cumu_pot[t][c] = max_pot + x_pots[c]
-                    history[t][c] = hist
+                    cumu_pot[t, c] = max_pot + x_pots[c]
+                    history[t, c] = hist
                     
             # argmax
             c = np.argmax(cumu_pot[-1])
             y_hat = np.zeros(T)
             y_hat[T-1] = c 
             for t in range(T-1, 0, -1):
-                c = history[t][c]
+                c = history[t, c] # backtrack target from this step
                 y_hat[t-1] = c
                 
             Y.append(y_hat)
+
         return Y
 
 
@@ -737,9 +692,8 @@ class CostSensitiveSequenceTagger():
         Gradient = Objective(delta_i) - Objective(Theta)
         """
         # Compute current objective first
-        v, _, _ = self.solve_pairwise_p_check(x)
-        obj = sum(v) # v is for each state of the sequence
-        obj += self.reg_constant * 0.5 * ( sum(sum(self.theta**2)) + sum(sum(self.transition_theta**2)) ) # reg
+        obj = self.solve_pairwise_p_check(x, return_objective_only=True)
+        obj += self.reg_constant * 0.5 * ( np.linalg.norm(self.theta)**2 + np.linalg.norm(self.transition_theta)**2 )  # reg
         obj -= self.compute_empirical_feature_potential(x, y)
 
         # compute Objective(Theta + delta)
@@ -751,8 +705,8 @@ class CostSensitiveSequenceTagger():
         for i in range(r):
             for j in range(c):
                 self.theta[i, j] += delta # update this theta component
-                v, _, _ = self.solve_pairwise_p_check(x) # solve for objective
-                tmp_g[i, j] = sum(v) + self.reg_constant * 0.5 * ( sum(sum(self.theta**2)) + sum(sum(self.transition_theta**2)) ) 
+                v = self.solve_pairwise_p_check(x, return_objective_only=True) # solve for objective
+                tmp_g[i, j] = v + self.reg_constant * 0.5 * ( np.linalg.norm(self.theta)**2 + np.linalg.norm(self.transition_theta)**2 )
                 tmp_g[i, j] -= self.compute_empirical_feature_potential(x, y)
                 self.theta[i, j] -= delta # reset this theta component
 
@@ -761,8 +715,8 @@ class CostSensitiveSequenceTagger():
         for i in range(r):
             for j in range(c):
                 self.transition_theta[i, j] += delta # update this theta component
-                v, _, _ = self.solve_pairwise_p_check(x) # solve for objective
-                tmp_tg[i, j] = sum(v) + self.reg_constant * 0.5 * ( sum(sum(self.theta**2)) + sum(sum(self.transition_theta**2)) ) 
+                v = self.solve_pairwise_p_check(x, return_objective_only=True) # solve for objective
+                tmp_tg[i, j] = v + self.reg_constant * 0.5 * ( np.linalg.norm(self.theta)**2 + np.linalg.norm(self.transition_theta)**2 )
                 tmp_tg[i, j] -= self.compute_empirical_feature_potential(x, y)
                 self.transition_theta[i, j] -= delta # reset this theta component
 
@@ -772,23 +726,22 @@ class CostSensitiveSequenceTagger():
         tmp_tg -= obj
         return tmp_g/delta, tmp_tg/delta
 
-        
-        
-# 
-#         n_feature = X.shape[1] # number of columns
-#         
-#         zs = ZerosumGame(self.n_class, self.n_class)
-#         
-#         y = np.zeros(X.shape[0])
-#         
-#         for i in range(len(y)):
-#             Cx = self.cost_matrix.copy()
-#             for c in range(self.n_class): Cx[:, c] += np.dot( X[i], self.theta[c*n_feature:(c+1)*n_feature] )
-#             # v, p_hat = zs.getRowMinimizerDist(Cx)
-#             v, p_hat = zs.getRowMinimizerDistLP(Cx)
-#             
-#             y[i] = p_hat.argmax()
-#             
-#         y = y.astype(int)    
-#         return self.labels[y]
-        pass
+
+        def compute_and_save_gradients(self, X, Y, gradient, transition_gradient):
+            """
+            For debuggin purpose
+            Save passed gradient and computed gradient 
+            """
+            tmp_g = np.zeros(self.theta.shape)
+            tmp_tg = np.zeros(self.transition_theta.shape)
+            for x, y in zip(X, Y):
+                tmp_g, tmp_tg = self.compute_gradient_from_obj(x, y, delta=1e-10)
+                batch_g += tmp_g
+                batch_tg += tmp_tg
+            tmp_g = batch_g / len(Y)
+            tmp_tg = batch_tg / len(Y)
+            tmp = np.column_stack([self.theta.flatten(), tmp_g.flatten(), gradient.flatten(), tmp_g.flatten() - gradient.flatten()])
+            np.savetxt("gradient_debug.csv", tmp, delimiter=',')
+            tmp = np.column_stack([self.transition_theta.flatten(), tmp_tg.flatten(), transition_gradient.flatten(), tmp_tg.flatten() - transition_gradient.flatten()])
+            np.savetxt("transition_gradient_debug.csv", tmp, delimiter=',')
+            
