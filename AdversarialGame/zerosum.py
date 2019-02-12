@@ -9,6 +9,9 @@ from scipy.optimize import linprog
 class ZerosumGame:
 
     def __init__(self, nrows, ncols):
+        self._initialize(nrows, ncols)
+
+    def _initialize(self, nrows, ncols):
         self.nrows = nrows
         self.ncols = ncols
         self.objective = np.ones(self.ncols)
@@ -17,6 +20,9 @@ class ZerosumGame:
         self.ub = None    
         
     def getColumnMaximizerDist(self, Cx):
+
+        if Cx.shape != (self.nrows, self.ncols):
+            self._initialize(Cx.shape) # for single oracle, every call is different size
     
         # negative matrix cannot be solved always, but this modification doesn't change distribution
         C = Cx.copy()
