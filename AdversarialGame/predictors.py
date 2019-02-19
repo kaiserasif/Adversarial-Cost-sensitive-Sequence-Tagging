@@ -36,6 +36,10 @@ class CostSensitiveClassifier():
         self.verbose = verbose
         
         self.termination_condition = ''
+
+        # to avoid IDE warnings
+        self.labels = np.array([])
+        self.theta = np.array([])
         
     def set_epoch(self, max_itr):
         pass
@@ -76,7 +80,6 @@ class CostSensitiveSequenceTagger():
                  verbose = 0
                  ):
     
-    
         self.cost_matrix = cost_matrix
         self.n_class = None
         if self.cost_matrix is not None:
@@ -90,8 +93,9 @@ class CostSensitiveSequenceTagger():
         
         self.termination_condition = ''
         
-#         self.gp_pchk_lp = gp.Model("p_check_solver")
-#         self.gp_pchk_lp.setParam('OutputFlag', 0)
+        # to remove IDE warnings
+        self.theta = np.array([])
+        self.transition_theta = np.array([])
         
     def set_epoch(self, max_itr):
         pass

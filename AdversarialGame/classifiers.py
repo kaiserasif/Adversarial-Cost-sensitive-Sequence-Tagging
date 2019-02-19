@@ -6,6 +6,7 @@ Created on May 7, 2018
 
 import numpy as np
 from scipy.optimize import minimize, check_grad
+from sklearn.base import BaseEstimator, ClassifierMixin
 import sys
 from .zerosum import ZerosumGame
 from .cvxoptsolvers import PairwiseJointLPSovler as Cvxsolver
@@ -160,7 +161,7 @@ class CostSensitiveClassifier():
 
 
 #### sequence tagging ########
-class CostSensitiveSequenceTagger():
+class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
 
     def __init__(self, 
                  cost_matrix = None, # if none, generate from y, 0-1 loss
@@ -178,7 +179,7 @@ class CostSensitiveSequenceTagger():
     
     
         self.cost_matrix = cost_matrix
-        self.n_class = None
+        self.n_class = 0
         if self.cost_matrix is not None:
             self.n_class = self.cost_matrix.shape[1]
         self.max_itr = max_itr
@@ -191,7 +192,8 @@ class CostSensitiveSequenceTagger():
         self.itr_to_chk = itr_to_chk
         self.batch_size = batch_size
         self.verbose = verbose
-        
+        self.solver = solver
+
         self.average_objective = []
         self.termination_condition = ''
         
@@ -201,9 +203,6 @@ class CostSensitiveSequenceTagger():
         # cache for linprog models
         self.lineprog_models = {}
 
-        self.sovler = solver
-
-        
     def set_epoch(self, max_itr):
         self.max_itr = max_itr
 
@@ -346,9 +345,9 @@ class CostSensitiveSequenceTagger():
         
         T = len(sequence)
         
-        if self.sovler == 'gurobi':
+        if self.solver == 'gurobi':
             obj, vars = self.solve_lp(sequence)
-        elif self.sovler == 'cvxopt':
+        elif self.solver == 'cvxopt':
             obj, vars = self.cvxsolver.solve_lp(sequence, self.theta, self.transition_theta)
         
         # v = vars[:T]
@@ -418,8 +417,6 @@ class CostSensitiveSequenceTagger():
         )
 
         return v, gradient, transition_gradient
-        
-
 
     
     def fit (self, X, Y):
@@ -436,7 +433,7 @@ class CostSensitiveSequenceTagger():
          
         self.labels = np.unique( np.concatenate(Y) )
         
-        if self.n_class is None:
+        if not self.n_class:
             self.n_class = len(self.labels)
              
         if self.cost_matrix is None:
@@ -545,12 +542,75 @@ class CostSensitiveSequenceTagger():
                 break
 
         if self.termination_condition == '':     
-            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete'                 
+            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete ' + str(avg_objectives.shape)
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
         self.average_objective = avg_objectives[:itr] # per_update_objective[:count] # avg_objectives[:itr]
         print (self.termination_condition)
 
         self.gurobimodels.clear()
+
+
+    def predict (self, X):
+        """
+        Find Y_hats using Vterbi
+        Parameters:
+            X : [sample][state][feature] list of 2-D numpy array
+        Returns:
+            Y: [sample][state] list of 1-D numpy array
+        """
+
+        Y = []
+        
+        n_class = self.n_class
+        n = len(X)
+        pair_pot = self.transition_theta 
+        theta = self.theta
+
+        for i in range(n): # n samples
+            x = X[i]
+            T = len(x)
+            
+            # cumu_pot = [[0]*n_class for _ in range(T)]
+            cumu_pot = np.zeros((T, n_class))
+            history = np.zeros(cumu_pot.shape, dtype=int) 
+            
+            cumu_pot[0, :] = np.dot(x[0], theta)
+                
+            # rest of the sequence
+            for t in range(1, T):
+                x_pots = np.dot(x[t], theta)
+                for c in range(n_class):
+                    hist = 0
+                    max_pot = cumu_pot[t-1, hist] + pair_pot[hist, c]
+                    for prev_c in range(n_class):
+                        prev_pot = cumu_pot[t-1, prev_c] + pair_pot[prev_c, c]
+                        if prev_pot > max_pot:
+                            max_pot = prev_pot
+                            hist = prev_c
+                    cumu_pot[t, c] = max_pot + x_pots[c]
+                    history[t, c] = hist
+                    
+            # argmax
+            c = np.argmax(cumu_pot[-1])
+            y_hat = np.zeros(T, dtype=int)
+            y_hat[T-1] = c 
+            for t in range(T-1, 0, -1):
+                c = history[t, c] # backtrack target from this step
+                y_hat[t-1] = c
+                
+            Y.append(y_hat)
+
+        return Y
+
+
+    def score(self, X, Y):
+        """
+        Compute score
+        Scikit-learn expects accuracy measure
+        Therefore return -expected_cost
+        """
+        Y_pred = self.predict(X)
+        return -self.cost_matrix[np.concatenate(Y_pred), np.concatenate(Y)].mean()  
 
 
     def batch_optimization(self, X, Y):
@@ -617,58 +677,6 @@ class CostSensitiveSequenceTagger():
         print (res.success, res.status, res.message, res.nit)
     
     
-    def predict (self, X):
-        """
-        Find Y_hats using Vterbi
-        Parameters:
-            X : [sample][state][feature] list of 2-D numpy array
-        Returns:
-            Y: [sample][state] list of 1-D numpy array
-        """
-
-        Y = []
-        
-        n_class = self.n_class
-        n = len(X)
-        pair_pot = self.transition_theta 
-        theta = self.theta
-
-        for i in range(n): # n samples
-            x = X[i]
-            T = len(x)
-            
-            # cumu_pot = [[0]*n_class for _ in range(T)]
-            cumu_pot = np.zeros((T, n_class))
-            history = np.zeros(cumu_pot.shape, dtype=int) 
-            
-            cumu_pot[0, :] = np.dot(x[0], theta)
-                
-            # rest of the sequence
-            for t in range(1, T):
-                x_pots = np.dot(x[t], theta)
-                for c in range(n_class):
-                    hist = 0
-                    max_pot = cumu_pot[t-1, hist] + pair_pot[hist, c]
-                    for prev_c in range(n_class):
-                        prev_pot = cumu_pot[t-1, prev_c] + pair_pot[prev_c, c]
-                        if prev_pot > max_pot:
-                            max_pot = prev_pot
-                            hist = prev_c
-                    cumu_pot[t, c] = max_pot + x_pots[c]
-                    history[t, c] = hist
-                    
-            # argmax
-            c = np.argmax(cumu_pot[-1])
-            y_hat = np.zeros(T)
-            y_hat[T-1] = c 
-            for t in range(T-1, 0, -1):
-                c = history[t, c] # backtrack target from this step
-                y_hat[t-1] = c
-                
-            Y.append(y_hat)
-
-        return Y
-
 
     def compute_empirical_feature_potential(self, x, y):
         """
