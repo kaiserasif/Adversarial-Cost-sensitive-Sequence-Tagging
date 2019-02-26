@@ -2,6 +2,10 @@ import numpy as np
 import cvxopt
 
 class ZerosumGame:
+    """
+    Use cvxopt to solve Zerosum games
+    Instead of sklearn's linprog
+    """
 
     def __init__(self, nrows, ncols):
         self._initialize(nrows, ncols)  

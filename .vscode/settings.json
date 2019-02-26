@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/Users/kaiser/anaconda3/bin/python"
+    "python.pythonPath": "/Users/kaiser/anaconda3/envs/cvxopt/bin/python",
+    "python.linting.pylintEnabled": true
 }

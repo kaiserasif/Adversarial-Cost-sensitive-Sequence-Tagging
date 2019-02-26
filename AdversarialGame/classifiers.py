@@ -9,9 +9,11 @@ from scipy.optimize import minimize, check_grad
 from sklearn.base import BaseEstimator, ClassifierMixin
 import sys
 from .zerosum import ZerosumGame
-from .cvxoptsolvers import PairwiseJointLPSovler as Cvxsolver
+from .pairwisejointlp_cvxopt import PairwiseJointLPSovler as Cvxsolver
+from .pairwisejoint import PairwiseJoint
+from .singleoracle import SingleOracle
 import gurobipy as gp
-import datetime
+import time
 import copy
 
         
@@ -195,189 +197,24 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         self.solver = solver
 
         self.average_objective = []
+        self.epoch_times = []
         self.termination_condition = ''
-        
-        # gurobi model cache for faster build time
-        self.gurobimodels = {}
 
-        # cache for linprog models
-        self.lineprog_models = {}
 
     def set_epoch(self, max_itr):
         self.max_itr = max_itr
-
-
-    def make_linprog_model_of_len(self, T):
-        """
-        Initialize the objective, and constraint matrices
-        Some sub matrices of the Ineq constraint matrix will change
-        All other are fixed for len T
-        """
-        # minimizes the objective 
-        # - v1 - v2 ...0 * p1p2 {00, 01, 10, 11} .... 
-        # T v variables, T-1 p variable groups, each group with Y^2 variables
-        # minimizes only -V
-        objective = [-1] * T + [0] * ((self.n_class ** 2) * (T-1))
-
     
-    def get_linprog_model(self, sequence):
+
+    def _compute_feature_expectations(self, x, y, pairwise_pcheck, marginal_pcheck):
         """
-        Prepare the objective, A_ub, b_ub, A_eq, b_eq, and bounds
-        For the sequence
+        Compute feature expectation w.r.t. pcheck values, 
+        also compute the sample empirical feature expectation
+        Returns:
+            pcheck_feat : shape of theta
+            empirical_feat : shape of theta
+            transition_pcheck_feat : shape of transition theta
+            transition_empirical_feat : shape of transition theta
         """
-        pass
-
-    
-    def solve_pairwise_p_check_by_linprog(self, sequence):
-        """
-        Use python's builtin linprog for solving 
-        """
-        pass
-    
-        
-    def make_gurobi_model_of_len(self, T):
-
-        model = gp.Model("p_check_solver")
-        model.setParam('OutputFlag', 0)
-        
-        # add variables
-        variables = []
-        for i in range(T):
-            variables.append( model.addVar(lb=-gp.GRB.INFINITY, name="v_" + str(i) ) )
-        for i in range(1, T): # y1y2, y2y3 : starts from 2nd index
-            for a in range(self.n_class):
-                for b in range(self.n_class):
-                    variables.append( model.addVar(lb=0.0, ub=1.0, name="y_{}_p_({}{})".format(i, a, b) ) )
-        # set objective
-        model.setObjective(sum(variables[:T]), gp.GRB.MAXIMIZE)
-
-        # add first node's constraints
-        for yhat in range(self.n_class):
-            lhs = 0
-            for a in range(self.n_class):
-                for b in range(self.n_class):
-                    var_idx = a * self.n_class + b
-                    lhs += 0 * variables[T + var_idx] # update this coeff 1
-            model.addConstr(lhs >= variables[0], "ct{}y{}".format(0, yhat) )
-        # other nodes
-        for t in range(1, T):
-            # add the inequality, cost matrix
-            for yhat in range(self.n_class): # for each yhat add the constraint
-                lhs = 0
-                for a in range(self.n_class):
-                    for b in range(self.n_class):
-                        # for 2nd node t=1, y1y2 vars, same as the first node's variables
-                        var_idx = (t-1)*(self.n_class**2) + a*self.n_class + b
-                        lhs += 0 * variables[T + var_idx] # update this coeff 1
-                model.addConstr(lhs >= variables[t], "ct{}y{}".format(t, yhat) )
-
-            # add the probability constraint
-            model.addConstr(sum(variables[T + (t-1) * (self.n_class**2) : T + t * (self.n_class**2) ]) == 1, "ceqt{}".format(t))
-            # add the pairwise constraints, both previous and next steps needed
-            if t < T - 1:
-                for b in range(self.n_class):
-                    offset = T + (t-1) * (self.n_class**2)
-                    lhs = 0
-                    # (a=0, b=0), (a=0, b=1), (a=1, b=0), (a=1, b=1)
-                    # for a fixed b, add a*n_class + b, for all a
-                    for a in range(self.n_class): 
-                        lhs += variables[offset + a * self.n_class + b]
-                    # rhs, (b=0, c=0), (b=0, c=1), (b=1, c=0), (b=1, c=1)
-                    # for fixed b, sum up b*n_class:(b+1)*n_class, move over n_class**2 for the t-1-th step
-                    model.addConstr(lhs == sum(variables[offset + (self.n_class**2) + b*self.n_class : offset + (self.n_class**2) + (b+1)*self.n_class]), "cprt{}y{}".format(t, b))
-
-        model.update()
-        
-        # save the model to the hashmap
-        self.gurobimodels[T] = (variables, model)
-
-
-    def get_gurobi_model(self, sequence):
-        ''' get a gurobi model of the same length from hash. update coeff. faster.'''
-        
-        T = len(sequence)
-        psi_pairs = self.transition_theta # there's no other weights. 
-        
-        # make one if same length lp doesn't exist
-        if T not in self.gurobimodels:
-            self.make_gurobi_model_of_len(T)
-
-        # retrieve a model of the same length
-        variables, model = self.gurobimodels[T]
-        model.reset()
-
-        # add first node's constraints
-        psi = np.dot(sequence[0,:], self.theta)
-        for yhat in range(self.n_class):
-            constr = model.getConstrByName("ct{}y{}".format(0, yhat))
-            for a in range(self.n_class):
-                for b in range(self.n_class):
-                    var_idx = a * self.n_class + b
-                    model.chgCoeff(constr, variables[T + var_idx], 
-                        (self.cost_matrix[yhat, a] + psi[a])
-                    )
-        # other nodes
-        for t in range(1, T):
-            psi = np.dot(sequence[t,:], self.theta)
-            # add the inequality, cost matrix
-            for yhat in range(self.n_class): # for each yhat add the constraint
-                constr = model.getConstrByName("ct{}y{}".format(t, yhat))
-                for a in range(self.n_class):
-                    for b in range(self.n_class):
-                        var_idx = (t-1)*(self.n_class**2) + a*self.n_class + b
-                        model.chgCoeff(constr, variables[T + var_idx], 
-                            ( self.cost_matrix[yhat, b] + psi[b] + psi_pairs[a, b]) 
-                        )
-        model.update()
-
-        return model
-    
-    def solve_lp(self, sequence):
-        model = self.get_gurobi_model(sequence)
-
-        model.optimize()
-        if model.Status != gp.GRB.OPTIMAL: print('Gurobi solution status: {}'.format(model.Status) )
-        
-        vars = np.array([v.x for v in model.getVars()])
-        return model.getObjective().getValue(), vars
-
-    def solve_pairwise_p_check(self, sequence, return_objective_only=False):
-        
-        T = len(sequence)
-        
-        if self.solver == 'gurobi':
-            obj, vars = self.solve_lp(sequence)
-        elif self.solver == 'cvxopt':
-            obj, vars = self.cvxsolver.solve_lp(sequence, self.theta, self.transition_theta)
-        
-        # v = vars[:T]
-        vars = vars[T:]
-        if return_objective_only: return obj # for lbfgs's objective func, we dont need probabilities
-
-        # # normalize vars, sum is > 1
-        # nys = self.n_class ** 2
-        # for t in range(T-1):
-        #     vars[t * nys : (t+1) * nys] /= vars[t * nys : (t+1) * nys].sum()
-
-        pairwise_pcheck = [ [ [None]*self.n_class for _ in range(self.n_class) ] for _ in range(T-1) ] # T-1 pairs
-        marginal_pcheck = [ [0]*self.n_class for _ in range(T) ]
-        for i in range(0, T-1): # y1y2, y2y3 : starts from 2nd index
-            for a in range(self.n_class):
-                for b in range(self.n_class):
-                    # var order pipj: (a=0, b=0), (a=0, b=1), (a=1, b=0), (a=1, b=1)
-                    p = vars[i*(self.n_class**2) + a*self.n_class + b]
-                    pairwise_pcheck[i][a][b] = p
-                    marginal_pcheck[i][a] += p
-        # final node
-        for a in range(self.n_class):
-            for b in range(self.n_class):
-                # var order pipj: (a=0, b=0), (a=0, b=1), (a=1, b=0), (a=1, b=1)
-                p = vars[(T-2)*(self.n_class**2) + a*self.n_class + b]
-                marginal_pcheck[T-1][b] += p
-                
-        return obj, pairwise_pcheck, marginal_pcheck
-    
-    def compute_feature_expectations(self, x, y, pairwise_pcheck, marginal_pcheck):
         T = len(x)
         pcheck_feat = np.zeros(self.theta.shape)
         empirical_feat = np.zeros(self.theta.shape)
@@ -396,14 +233,18 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         
         return pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat
 
+
     def _compute_gradient(self, x, y):
         """
         Compute the stochastic gradient of the single sample
         """
-        v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
+        # v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
+        v, pairwise_pcheck, marginal_pcheck = self.solver_object.solve_for_p_check(
+            x, self.theta, self.transition_theta
+        )
         pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat \
-            = self.compute_feature_expectations(x, y, pairwise_pcheck, marginal_pcheck)
-        # empirical_expectation = self.compute_empirical_feature_potential(x, Y[i]) # for game value computation
+            = self._compute_feature_expectations(x, y, pairwise_pcheck, marginal_pcheck)
+        # empirical_expectation = self._compute_empirical_feature_potential(x, Y[i]) # for game value computation
         empirical_expectation = (empirical_feat * self.theta).sum() \
             + (transition_empirical_feat * self.transition_theta).sum()
 
@@ -428,6 +269,8 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         :param Y: [sample][state]
         :type Y: list of 1-d numpy array
         """
+        np.random.seed(42)
+
         n_feature = X[0].shape[1] # number of columns
         n_sample = len(X)
          
@@ -441,12 +284,18 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
 
         # solver using cvxopt package, could've been in init, 
         # but updated n_class and cost_matrix needed
-        self.cvxsolver = Cvxsolver(self.n_class, self.cost_matrix)
+        # self.cvxsolver = Cvxsolver(self.n_class, self.cost_matrix)
+        if "singleoracle" == self.solver:
+            self.solver_object = SingleOracle(self.n_class, self.cost_matrix)
+        else:
+            self.solver_object = PairwiseJoint(self.n_class, self.cost_matrix, self.solver)
      
         self.theta = np.random.rand(n_feature, self.n_class) - 0.5 
         self.transition_theta = np.random.rand(self.n_class, self.n_class) - 0.5 
              
         avg_objectives = np.zeros(self.max_itr)
+        times = np.zeros(self.max_itr)
+        start_time = time.process_time()
 
         # adagrad parameters
         rate = self.learning_rate # 0.5
@@ -530,6 +379,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             # stopping criteria
             # or evaluate expected loss over all samples again here with O(n_sample) time    
             avg_objectives[itr] = batch_game_val / n_sample
+            times[itr] = time.process_time() - start_time
             # print(game_val)
             
             avg_grad = avg_grad / n_sample
@@ -545,9 +395,8 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete ' + str(avg_objectives.shape)
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
         self.average_objective = avg_objectives[:itr] # per_update_objective[:count] # avg_objectives[:itr]
+        self.epoch_times = times[:itr]
         print (self.termination_condition)
-
-        self.gurobimodels.clear()
 
 
     def predict (self, X):
@@ -622,11 +471,13 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             self.transition_theta = theta[-self.n_class:]
             obj = 0
             for x, y in zip(X, Y):
-                obj += self.solve_pairwise_p_check(x, return_objective_only=True)
+                # obj += self.solve_pairwise_p_check(x, return_objective_only=True)
+                v, _, _ = self.solver_object.solve_for_p_check(x)
+                obj += v
                 obj -= self.compute_empirical_feature_potential(x, y) 
             obj /= len(Y)
             obj += self.reg_constant * 0.5 * ( sum(sum(self.theta**2)) + sum(sum(self.transition_theta**2)) ) 
-            # print (obj)
+            
             return obj
 
         # gradient function
@@ -637,9 +488,10 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             gradient = np.zeros( self.theta.shape )
             transition_gradient = np.zeros( self.transition_theta.shape )
             for (x, y) in zip(X, Y):
-                _, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
+                # _, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
+                _, pairwise_pcheck, marginal_pcheck = self.solver_object.solve_for_p_check(x)
                 pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat \
-                        = self.compute_feature_expectations(x, y, pairwise_pcheck, marginal_pcheck)
+                        = self._compute_feature_expectations(x, y, pairwise_pcheck, marginal_pcheck)
                 gradient += pcheck_feat - empirical_feat 
                 transition_gradient += transition_pcheck_feat - transition_empirical_feat 
             gradient /= len(Y)
@@ -666,7 +518,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         #     print("node:", t, pr, sum(pr), marginal_pcheck[t], sum(marginal_pcheck[t]))
 
         res = minimize(fun, theta, jac=der, tol=1e-6, callback=callback_fun, options={'maxiter': self.max_itr})
-        print (check_grad(fun, der, res.x))
+        # print (check_grad(fun, der, res.x))
 
         ####
         # record the result
@@ -674,11 +526,11 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         theta = theta.reshape(-1, self.n_class)
         self.theta = theta[:-self.n_class]
         self.transition_theta = theta[-self.n_class:]
-        print (res.success, res.status, res.message, res.nit)
+        # print (res.success, res.status, res.message, res.nit)
     
     
 
-    def compute_empirical_feature_potential(self, x, y):
+    def _compute_empirical_feature_potential(self, x, y):
         """
         Compute c = theta * feature(x, y)
         Used to correct the objective: Game + P(y) * theta * feature(x, y) - c
@@ -692,7 +544,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
 
 
 
-    def compute_gradient_from_obj(self, x, y=None, delta=1e-8):
+    def _compute_gradient_from_obj(self, x, y=None, delta=1e-8):
         """
         Compute Objective(Theta)
         Then Theta_i += delta, Compute Objective(delta_i)
@@ -700,9 +552,10 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         Gradient = Objective(delta_i) - Objective(Theta)
         """
         # Compute current objective first
-        obj = self.solve_pairwise_p_check(x, return_objective_only=True)
+        # obj = self.solve_pairwise_p_check(x, return_objective_only=True)
+        obj, _, _ = self.solver_object.solve_for_p_check(x)
         obj += self.reg_constant * 0.5 * ( np.linalg.norm(self.theta)**2 + np.linalg.norm(self.transition_theta)**2 )  # reg
-        obj -= self.compute_empirical_feature_potential(x, y)
+        obj -= self._compute_empirical_feature_potential(x, y)
 
         # compute Objective(Theta + delta)
         tmp_g = np.zeros( self.theta.shape ) 
@@ -713,9 +566,10 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         for i in range(r):
             for j in range(c):
                 self.theta[i, j] += delta # update this theta component
-                v = self.solve_pairwise_p_check(x, return_objective_only=True) # solve for objective
+                # v = self.solve_pairwise_p_check(x, return_objective_only=True) # solve for objective
+                v, _, _ = self.solver_object.solve_for_p_check(x)
                 tmp_g[i, j] = v + self.reg_constant * 0.5 * ( np.linalg.norm(self.theta)**2 + np.linalg.norm(self.transition_theta)**2 )
-                tmp_g[i, j] -= self.compute_empirical_feature_potential(x, y)
+                tmp_g[i, j] -= self._compute_empirical_feature_potential(x, y)
                 self.theta[i, j] -= delta # reset this theta component
 
         # now with transition theta
@@ -723,9 +577,9 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         for i in range(r):
             for j in range(c):
                 self.transition_theta[i, j] += delta # update this theta component
-                v = self.solve_pairwise_p_check(x, return_objective_only=True) # solve for objective
+                v, _, _ = self.solver_object.solve_for_p_check(x)
                 tmp_tg[i, j] = v + self.reg_constant * 0.5 * ( np.linalg.norm(self.theta)**2 + np.linalg.norm(self.transition_theta)**2 )
-                tmp_tg[i, j] -= self.compute_empirical_feature_potential(x, y)
+                tmp_tg[i, j] -= self._compute_empirical_feature_potential(x, y)
                 self.transition_theta[i, j] -= delta # reset this theta component
 
         # gradient = Objective (Theta + delta in each component) - Objective (Theta)
@@ -735,15 +589,15 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         return tmp_g/delta, tmp_tg/delta
 
 
-        def compute_and_save_gradients(self, X, Y, gradient, transition_gradient):
+        def _compute_and_save_gradients(self, X, Y, gradient, transition_gradient):
             """
             For debuggin purpose
             Save passed gradient and computed gradient 
             """
-            tmp_g = np.zeros(self.theta.shape)
-            tmp_tg = np.zeros(self.transition_theta.shape)
+            batch_g = np.zeros(self.theta.shape)
+            batch_tg = np.zeros(self.transition_theta.shape)
             for x, y in zip(X, Y):
-                tmp_g, tmp_tg = self.compute_gradient_from_obj(x, y, delta=1e-10)
+                tmp_g, tmp_tg = self._compute_gradient_from_obj(x, y, delta=1e-10)
                 batch_g += tmp_g
                 batch_tg += tmp_tg
             tmp_g = batch_g / len(Y)

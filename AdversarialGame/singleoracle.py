@@ -29,20 +29,17 @@ class SingleOracle:
     probably that's a sanity check, skipped here
     """
 
-    def __init__(self, theta, transition_theta, n_class, cost_matrix, max_itr = 10000):
+    def __init__(self, n_class, cost_matrix, max_itr = 10000):
         """
         Initialize SingleOracle with the references to the 
         Theta parameters learned in the optimization.
         They are used in finding the best reponses.
         Parameters:
         -----------
-            theta : numpy matrix of size: n_feature x n_class 
-            transition_theta : numpy matrix of size: n_class x n_class
             n_class : number of target classes
             cost_matrix : numpy matrix of n_class x n_class
+            max_itr : maximum iteration for finding best reponses
         """
-        self.theta = theta
-        self.transition_theta = transition_theta
         self.n_class = n_class
         self.cost_matrix = cost_matrix
         self.max_itr = max_itr
@@ -50,23 +47,21 @@ class SingleOracle:
 
     def set_param(self, **kwargs):
         """
-        theta's are assumed unchanged reference
-        after initialization.
-        if using code doesn't match that criteria,
         this method provides the ability to set the updated 
         parameters
         """
         self.__dict__.update(kwargs)
 
 
-    def solve_p_hat_p_check(self, sequence):
+    def solve_p_hat_p_check(self, sequence, theta, transition_theta):
         """
         The Single Oracle method
 
         Parameters:
         -----------
             sequence: the X or feature values of the sequence
-        
+            theta : numpy matrix of size: n_feature x n_class 
+            transition_theta : numpy matrix of size: n_class x n_class
         Returns:
         --------
             v : Number : game value
@@ -79,7 +74,7 @@ class SingleOracle:
 
         # initialize actions with all same class for full sequence for all classes
         pcheck_actions = []
-        for c in range(n_class): pcheck_actions.append( [c] * T ) 
+        for c in range(self.n_class): pcheck_actions.append( [c] * T ) 
         
         # construct the lp and solve for P_hat
         """ Minimize: c^T * x
@@ -88,7 +83,8 @@ class SingleOracle:
         """
         objective, A_ub_list, b_ub_list, A_eq, b_eq = self._initialize_singleoracle_phat_lp(T)
         for action in pcheck_actions: 
-            self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list, action)
+            self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list,
+                action, theta, transition_theta)
             
         # use cvxopt for sparse matrices?
         # http://cvxopt.org/userguide/coneprog.html#linear-programming 
@@ -112,7 +108,8 @@ class SingleOracle:
             previous_min_gamevalue = min_gamevalue
 
             # call best response function
-            new_action_val, new_action = self._find_singleoracle_best_pcheck(sequence, phat)
+            new_action_val, new_action = self._find_singleoracle_best_pcheck(sequence,
+                phat, theta, transition_theta)
             
             # if value is less than the p-hat solution, break
             if new_action_val <= min_gamevalue: break # adversary didn't find a choice to maximize cost
@@ -120,10 +117,11 @@ class SingleOracle:
             # add best response to the actions, repeat
             if new_action not in pcheck_actions :
                 pcheck_actions.append(new_action)
-                self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list, new_action)
+                self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list,
+                    new_action, theta, transition_theta)
         
         # after breaking the loop, call for pcheck solution
-        max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions)
+        max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions, theta, transition_theta)
         
         # the pcheck is for the ycheck actions, 
         # compute marginals and pairwise-joints 
@@ -132,22 +130,24 @@ class SingleOracle:
         return previous_min_gamevalue, phat, pairwise_pcheck, marginal_pcheck
 
 
-    def solve_for_p_check(self, sequence):
+    def solve_for_p_check(self, sequence, theta, transition_theta):
         """
         The Single Oracle method
 
         Parameters:
         -----------
             sequence: the X or feature values of the sequence
+            theta : numpy matrix of size: n_feature x n_class 
+            transition_theta : numpy matrix of size: n_class x n_class
         
         Returns:
         --------
             v : Number : game value
-            p_hat : numpy array of size T x Y 
             p_check joints : numpy array of size T x Y x Y
             p_check marginals : numpy array of size T x Y
         """
-        gamevalue, phat, pairwise_pcheck, marginal_pcheck = self.solve_p_hat_p_check(sequence)
+        gamevalue, phat, pairwise_pcheck, marginal_pcheck = self.solve_p_hat_p_check(
+            sequence, theta, transition_theta)
         return gamevalue, pairwise_pcheck, marginal_pcheck
 
 
@@ -193,7 +193,8 @@ class SingleOracle:
         return objective, A_ub_list, b_ub_list, A_eq, b_eq
 
 
-    def _add_singleoracle_constraint_for_pcheck_action(self, sequence, A_ub_list, b_ub_list, action):
+    def _add_singleoracle_constraint_for_pcheck_action(self, sequence, A_ub_list, b_ub_list,
+        action, theta, transition_theta):
         """
         compute A_ub <= b_ub constraint for the specified pheck action
         - v + phat * cost (for all T) <= - potential
@@ -202,6 +203,8 @@ class SingleOracle:
             A_ub_list : List[List[float]]
             b_ub_list : List[float]
             action : numpy.1d-array
+            theta : numpy matrix of size: n_feature x n_class 
+            transition_theta : numpy matrix of size: n_class x n_class
         """
         T = len(action)
         n_phats = T * self.n_class
@@ -217,9 +220,9 @@ class SingleOracle:
 
             # compute the theta * features
             # similar to empirical features, since not stochastic
-            potential += np.dot(sequence[t,:], self.theta[:, action[t]])
+            potential += np.dot(sequence[t,:], theta[:, action[t]])
             if t > 0:
-                potential += self.transition_theta[action[t-1], action[t]]
+                potential += transition_theta[action[t-1], action[t]]
 
         # append this new constraint to A_ub and b_ub
         A_ub_list.append(new_row)
@@ -256,12 +259,14 @@ class SingleOracle:
         return res['primal objective'], np.array(res['x'])[:, 0] # a column vector of dense matrix, convert to 1d
 
 
-    def _find_singleoracle_best_pcheck(self, sequence, phat):
+    def _find_singleoracle_best_pcheck(self, sequence, phat, theta, transition_theta):
         """
         find the best y_check action that maximizes the loss
         Parameters:
             sequence : numpy 2-d array
             phat : numpy 1-d array of size of T * n_class
+            theta : numpy matrix of size: n_feature x n_class 
+            transition_theta : numpy matrix of size: n_class x n_class
         Returns:
             List[int] : T length y_check action with maximum loss
         """
@@ -275,24 +280,24 @@ class SingleOracle:
         T = len(sequence)
         x = sequence
 
-        pair_pot = self.transition_theta # links are only boolean
+        pair_pot = transition_theta # links are only boolean
 
         cumu_pot = np.zeros((T, self.n_class))
         history = np.zeros(cumu_pot.shape, dtype=int) 
 
-        cumu_pot[0, :] = ( np.dot(x[0], self.theta) # local feature feature potential    
+        cumu_pot[0, :] = ( np.dot(x[0], theta) # local feature feature potential    
                         + np.dot(phat[:self.n_class], self.cost_matrix) # expectation: phat * cost
         )
                 
         # rest of the sequence
         for t in range(1, T):
-            x_pots_costs = ( np.dot(x[t], self.theta)
+            x_pots_costs = ( np.dot(x[t], theta)
                     + np.dot(phat[t * self.n_class : (t+1) * self.n_class], self.cost_matrix)
             )
-            for y_check in range(n_class):
+            for y_check in range(self.n_class):
                 hist = 0
                 max_pot = cumu_pot[t-1, hist] + pair_pot[hist, y_check]
-                for prev_y in range(n_class):
+                for prev_y in range(self.n_class):
                     prev_pot = cumu_pot[t-1, prev_y] + pair_pot[prev_y, y_check]
                     if prev_pot > max_pot:
                         max_pot = prev_pot
@@ -311,12 +316,14 @@ class SingleOracle:
         return np.max(cumu_pot[-1]), y_check
 
 
-    def _pcheck_singleoracle(self, sequence,  pcheck_actions):
+    def _pcheck_singleoracle(self, sequence,  pcheck_actions, theta, transition_theta):
         """
         Compute pcheck distribution using single oracle method
         Parameters :
             sequence : 2d np.array
             pcheck_actions : List[List[float]]
+            theta : numpy matrix of size: n_feature x n_class 
+            transition_theta : numpy matrix of size: n_class x n_class
         Returns : 
             gamevalue : float
             pcheck : List[float] of len(pcheck_actions)
@@ -342,9 +349,9 @@ class SingleOracle:
 
         for t in range(T):
             for i in range(n_action):
-                objective[T + i] -= np.dot(x[t], self.theta[:, pcheck_actions[i][t]])
+                objective[T + i] -= np.dot(x[t], theta[:, pcheck_actions[i][t]])
                 if t > 0: # pairwise links
-                    objective[T + i] -= self.transition_theta[pcheck_actions[i][t-1], pcheck_actions[i][t]]
+                    objective[T + i] -= transition_theta[pcheck_actions[i][t-1], pcheck_actions[i][t]]
 
             # A_ub <= b_ub
             # v_t - C[yhat(t), ychecks[t]] <= 0
@@ -410,5 +417,5 @@ if "__main__" == __name__:
     x = np.random.randint(-5, 5, (T, n_feature))
     # print(theta, transition_theta, x)
 
-    so = SingleOracle(theta*1.0, transition_theta*1.0, n_class, 1-np.eye(n_class))
-    so.solve_p_hat_p_check(x*1.)
+    so = SingleOracle(n_class, 1-np.eye(n_class))
+    print ( so.solve_p_hat_p_check(x*1., theta*1.0, transition_theta*1.0) )
