@@ -119,7 +119,8 @@ class PairwiseJointLPSovler:
         #         np.savetxt(f, np.array(cvxopt.matrix(mat)), fmt='%.2e', delimiter=',')
         #         f.write("\n-\n")
         #     f.write("-"*10 + "\n\n")
-
+        # diable glpk messages
+        cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
         res = cvxopt.solvers.lp(obj, G, H, A, B, solver='glpk')
         if res['status'] != 'optimal':
             print(res)
