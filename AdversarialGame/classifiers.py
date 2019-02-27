@@ -7,14 +7,15 @@ Created on May 7, 2018
 import numpy as np
 from scipy.optimize import minimize, check_grad
 from sklearn.base import BaseEstimator, ClassifierMixin
+
 import sys
+import time
+import copy
+
 from .zerosum import ZerosumGame
 from .pairwisejointlp_cvxopt import PairwiseJointLPSovler as Cvxsolver
 from .pairwisejoint import PairwiseJoint
 from .singleoracle import SingleOracle
-import gurobipy as gp
-import time
-import copy
 
         
 class CostSensitiveClassifier():
