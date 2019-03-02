@@ -167,7 +167,7 @@ class CostSensitiveClassifier():
 class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
 
     def __init__(self, 
-                 cost_matrix = None, # if none, generate from y, 0-1 loss
+                 cost_matrix,
                  max_itr = 100, # epoch of stochastic gradient descent
                  max_update = 10000, # redundant, but controls the update, not epoch
                  reg_constant = 1e-2,
@@ -182,9 +182,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
     
     
         self.cost_matrix = cost_matrix
-        self.n_class = 0
-        if self.cost_matrix is not None:
-            self.n_class = self.cost_matrix.shape[1]
+        self.n_class = self.cost_matrix.shape[1]
         self.max_itr = max_itr
         self.max_update = max_update
         self.reg_constant = reg_constant
@@ -197,8 +195,8 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         self.verbose = verbose
         self.solver = solver
 
-        self.average_objective = []
-        self.epoch_times = []
+        self.average_objective = np.zeros(0)
+        self.epoch_times = np.zeros(0)
         self.termination_condition = ''
 
 
@@ -275,13 +273,13 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         n_feature = X[0].shape[1] # number of columns
         n_sample = len(X)
          
-        self.labels = np.unique( np.concatenate(Y) )
+        # self.labels = np.unique( np.concatenate(Y) )
         
-        if not self.n_class:
-            self.n_class = len(self.labels)
+        # if not self.n_class:
+        #     self.n_class = len(self.labels)
              
-        if self.cost_matrix is None:
-            self.cost_matrix =  1 - np.identity(self.n_class)
+        # if self.cost_matrix is None:
+        #     self.cost_matrix =  1 - np.identity(self.n_class)
 
         # solver using cvxopt package, could've been in init, 
         # but updated n_class and cost_matrix needed
