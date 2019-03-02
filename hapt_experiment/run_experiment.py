@@ -27,23 +27,18 @@ def load_hapt_data(data_dir = '/Users/kaiser/Downloads/Dataset/Sequence/HAPT Dat
 
     X_file, y_file, seq_file = 'X_%s.txt', 'y_%s.txt', 'sequnce_splits_%s.txt'
     X_tr, y_tr, seq_tr = ( 
-        np.loadtxt(os.path.join(train_dir, X_file%'train'))[:, :2], 
+        np.loadtxt(os.path.join(train_dir, X_file%'train')),
         np.loadtxt(os.path.join(train_dir, y_file%'train')).astype(int),  
         np.loadtxt(os.path.join(train_dir, seq_file%'train'), delimiter=',').astype(int) 
     )
     X_ts, y_ts, seq_ts = ( 
-        np.loadtxt(os.path.join(test_dir, X_file%'test'))[:, :2], 
+        np.loadtxt(os.path.join(test_dir, X_file%'test')),
         np.loadtxt(os.path.join(test_dir, y_file%'test')).astype(int),  
         np.loadtxt(os.path.join(test_dir, seq_file%'test'), delimiter=',').astype(int) 
     )
         
-    # X_tr = [X_tr[seq[1]:seq[2]+1] for seq in seq_tr] # 0 based and end-inclusive split info
-    # y_tr = [y_tr[seq[1]:seq[2]+1] for seq in seq_tr]
-    
-    ###########
-    ######## 10 length seq all
-    X_tr = [X_tr[seq[1]:seq[1]+10] for seq in seq_tr] # 0 based and end-inclusive split info
-    y_tr = [y_tr[seq[1]:seq[1]+10] for seq in seq_tr]
+    X_tr = [X_tr[seq[1]:seq[2]+1] for seq in seq_tr] # 0 based and end-inclusive split info
+    y_tr = [y_tr[seq[1]:seq[2]+1] for seq in seq_tr]
 
     X_ts = [X_ts[seq[1]:seq[2]+1] for seq in seq_ts]
     y_ts = [y_ts[seq[1]:seq[2]+1] for seq in seq_ts]
@@ -109,7 +104,7 @@ def run(data_dir, cost_file, svm_data_dir):
         
     
     # now create classifier and train
-    ast = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=10, 
+    ast = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, 
             reg_constant=reg_constant, learning_rate=learning_rate)
 
     ast, best_param = grid_search(ast, X_tr, y_seq, val_idx)
