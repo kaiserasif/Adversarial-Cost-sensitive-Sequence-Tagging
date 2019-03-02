@@ -385,13 +385,15 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             if itr > self.itr_to_chk and  abs(np.std(avg_objectives[itr-self.itr_to_chk:itr+1]) / np.mean(
                 avg_objectives[itr-self.itr_to_chk:itr+1])) <= self.game_val_cv:
                 self.termination_condition = 'optimization ended: average game value {} after {} iteration'.format(game_val, itr)
+                print ('gamevalue termination...')
                 break
             if np.all(avg_grad <= self.grad_tol):
                 self.termination_condition = 'optimization ended: maximum gradient component {} after {} iteration'.format(avg_grad.max(), itr)
+                print ('gradient termination...')
                 break
 
-        if self.termination_condition == '':     
-            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete ' + str(avg_objectives.shape)
+        if len(self.termination_condition) == 0:     
+            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete ' + str(avg_objectives[itr].shape)
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
         self.average_objective = avg_objectives[:itr] # per_update_objective[:count] # avg_objectives[:itr]
         self.epoch_times = times[:itr]
