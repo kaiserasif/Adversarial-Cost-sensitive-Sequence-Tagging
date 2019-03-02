@@ -473,7 +473,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
                 # obj += self.solve_pairwise_p_check(x, return_objective_only=True)
                 v, _, _ = self.solver_object.solve_for_p_check(x)
                 obj += v
-                obj -= self.compute_empirical_feature_potential(x, y) 
+                obj -= self._compute_empirical_feature_potential(x, y) 
             obj /= len(Y)
             obj += self.reg_constant * 0.5 * ( sum(sum(self.theta**2)) + sum(sum(self.transition_theta**2)) ) 
             
