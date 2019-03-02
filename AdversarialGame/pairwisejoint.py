@@ -1,5 +1,5 @@
 from .pairwisejointlp_cvxopt import PairwiseJointLPSovler as Cvxsolver
-from .pairwisejointlp_cvxopt import PairwiseJointLPSovler as Gurobisolver
+from .pairwisejointlp_gurobi import PairwiseJointLPSovler as Gurobisolver
 
 class PairwiseJoint:
     """
@@ -66,7 +66,7 @@ class PairwiseJoint:
                 self.solver = Gurobisolver(self.n_class, self.cost_matrix)
         elif self.solver_type == 'cvxopt' and not isinstance(self.solver, Cvxsolver):
                 self.solver = Cvxsolver(self.n_class, self.cost_matrix)
-    
+        
         # call solvers to get distributions
         gamevalue, vars = self.solver.solve_lp(sequence, theta, transition_theta)
         pairwise_pcheck = vars[T:]

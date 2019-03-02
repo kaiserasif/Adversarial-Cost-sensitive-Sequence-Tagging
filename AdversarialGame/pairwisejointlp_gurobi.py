@@ -86,16 +86,16 @@ class PairwiseJointLPSovler:
         v1 .... -psi(y1, x) -psi(y1,x)... <= 0
         """
         T = len(sequence)
-        psi_pairs = self.transition_theta # there's no other weights. 
+        psi_pairs = transition_theta # there's no other weights. 
 
         # retrieve a model of the same length
-        variables, model = self.gurobimodels[T]
+        variables, model = self._get_lp_for_len(T)
         model.reset()
 
         # based on theta and x
         # update the constraints
         # add first node's constraints
-        psi = np.dot(sequence[0,:], self.theta)
+        psi = np.dot(sequence[0,:], theta)
         for yhat in range(self.n_class):
             constr = model.getConstrByName("ct{}y{}".format(0, yhat))
             for a in range(self.n_class):
@@ -106,7 +106,7 @@ class PairwiseJointLPSovler:
                     )
         # other nodes
         for t in range(1, T):
-            psi = np.dot(sequence[t,:], self.theta)
+            psi = np.dot(sequence[t,:], theta)
             # add the inequality, cost matrix
             for yhat in range(self.n_class): # for each yhat add the constraint
                 constr = model.getConstrByName("ct{}y{}".format(t, yhat))
@@ -136,7 +136,7 @@ class PairwiseJointLPSovler:
             vars : all variables v and pchecks
         """
 
-        model = self.get_gurobi_model(sequence, theta, transition_theta)
+        model = self._make_lp(sequence, theta, transition_theta)
 
         model.optimize()
         if model.Status != gp.GRB.OPTIMAL: print('Gurobi solution status: {}'.format(model.Status) )

@@ -125,6 +125,6 @@ class PairwiseJointLPSovler:
         if res['status'] != 'optimal':
             print(res)
             exit
-        # print (res['x'].size)
+        # print ('cvxopt res.x size:', res['x'].size)
         return -res['primal objective'], np.array(res['x'])[:, 0]
 
