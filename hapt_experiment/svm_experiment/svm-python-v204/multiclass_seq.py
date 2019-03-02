@@ -3,7 +3,7 @@
 # Thomas Finley, tfinley@gmail.com
 
 import svmapi
-import ast
+import ast, sys
 import numpy as np
 
 # during trainng sparm.cost_matrix can be created
@@ -103,43 +103,37 @@ def viterbi(x, y, sm, sparm):
     n_class, n_feature = sm.num_classes, sm.num_features
     T = len(x) 
     y_bar = [0] * T
-    score = [[0] * n_class for _ in range(T) ]
+    score = [[0.] * n_class for _ in range(T) ]
     history = [[1<<31] * n_class for _ in range(T) ] # for backtracking
-
     # print x
     for t in range(T):
-        # print 't', t
-        # print list (x[t])
+        # the node features
         for idx,v in x[t]:
             # if not 0 <= idx < n_feature: continue # weird issue with very high key values
             for c in range(n_class):
-                # print ('w') #, sm.w[c * n_feature + idx])
                 score[t][c] += sm.w[c * n_feature + idx] * v
-                # add the loss if y provided
-                if y is not None:
-                    # score[t][c] += sparm.cost_matrix[c][y[t]-1] # 0 based index
-                    score[t][c] += cost_matrix[c][y[t]-1] # 0 based index
-
-                # search the transition path
-                # for all prev y, search max of score + y-y transistion
-                # 00 01 02 10 11 12 20 21 22
-                # index = Offset + (n_class) * prev_step + cur_step # 0 based index
-                if t > 0:
-                    M = n_class * n_feature
-                    prev_max, prev_max_c = score[t-1][0] + sm.w[M + 0 + c], 0
-                    for prev_c in range(1, n_class):
-                        tmp = score[t-1][prev_c] + sm.w[M + prev_c * n_class + c]
-                        if tmp > prev_max:
-                            prev_max, prev_max_c = tmp, prev_c
-                    # add this transition potential to the score
-                    score[t][c] += prev_max
-                    history[t][c] = prev_max_c
+        # add the loss if y provided
+        if y is not None:
+            score[t][c] += cost_matrix[c][y[t]-1] # 0 based index
+        # search the transition path
+        # for all prev y, search max of score + y-y transistion
+        # 00 01 02 10 11 12 20 21 22
+        # index = Offset + (n_class) * prev_step + cur_step # 0 based index
+        if t > 0:
+            M = n_class * n_feature
+            for c in range(n_class):
+                prev_max, prev_max_c = score[t-1][0] + sm.w[M + 0 + c], 0
+                for prev_c in range(1, n_class):
+                    tmp = score[t-1][prev_c] + sm.w[M + prev_c * n_class + c]
+                    if tmp > prev_max:
+                        prev_max, prev_max_c = tmp, prev_c
+                score[t][c] += prev_max
+                history[t][c] = prev_max_c
 
     # now find the maximum score in the end state
     # and backtrack the history to retrieve path
     # values saved 0-based index, y are 1 based
     max_score = max(score[-1])
-    # print (T, history)
     y_bar[-1] = score[-1].index(max_score) + 1
     for t in range(T-1, 0, -1):
         y_bar[t-1] = history[t][y_bar[t]-1] + 1
