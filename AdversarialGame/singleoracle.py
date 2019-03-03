@@ -251,8 +251,8 @@ class SingleOracle:
         A_ub = cvxopt.matrix (np.array(A_ub_list)) 
         b_ub = cvxopt.matrix (b_ub_list)
         # diable glpk messages
-        cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
-        res = cvxopt.solvers.lp(objective, A_ub, b_ub, A_eq, b_eq, solver='glpk')
+        # cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
+        res = cvxopt.solvers.lp(objective, A_ub, b_ub, A_eq, b_eq, solver='glpk', options={'glpk':{'msg_lev':'GLP_MSG_OFF'}})
         if res['status'] != 'optimal':
             print(res)
             exit
@@ -372,9 +372,8 @@ class SingleOracle:
         b_ub = cvxopt.matrix([0.] * (T * self.n_class + n_action) )
 
         # solve it
-        
-        cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
-        res = cvxopt.solvers.lp(objective, A_ub, b_ub, A_eq, b_eq, solver='glpk')
+        # cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
+        res = cvxopt.solvers.lp(objective, A_ub, b_ub, A_eq, b_eq, solver='glpk', options={'glpk':{'msg_lev':'GLP_MSG_OFF'}})
         if res['status'] != 'optimal':
             print(res)
             exit

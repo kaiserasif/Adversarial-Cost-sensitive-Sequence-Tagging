@@ -317,7 +317,9 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         update_count = 0
 
         for itr in range(self.max_itr):
-            if update_count >= self.max_update: break
+            if update_count >= self.max_update: 
+                self.termination_condition = 'max update (%d) exceeded' % update_count
+                break
             if self.verbose >= 2: print("epoch: ", itr); sys.stdout.flush()
                  
             idx = np.random.permutation(n_sample) 
@@ -393,7 +395,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
                 break
 
         if len(self.termination_condition) == 0:     
-            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete ' + str(avg_objectives[itr].shape)
+            self.termination_condition = 'Max-iteration ' + str(self.max_itr) +' complete ' + str(avg_objectives[:itr].shape)
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
         self.average_objective = avg_objectives[:itr] # per_update_objective[:count] # avg_objectives[:itr]
         self.epoch_times = times[:itr]

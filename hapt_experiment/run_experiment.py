@@ -104,11 +104,11 @@ def run(data_dir, cost_file, svm_data_dir):
         
     
     # now create classifier and train
-    ast = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, 
+    ast = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi', max_update=200000,
             reg_constant=reg_constant, learning_rate=learning_rate)
 
-    ast, best_param = grid_search(ast, X_tr, y_seq, val_idx)
-    print ("best parameter: " + str (best_param) )
+    # ast, best_param = grid_search(ast, X_tr, y_seq, val_idx)
+    # print ("best parameter: " + str (best_param) )
 
     ast.fit(X_tr, y_seq)
 
@@ -116,17 +116,19 @@ def run(data_dir, cost_file, svm_data_dir):
     np.savetxt('training_objectives.txt', np.column_stack((ast.epoch_times, ast.average_objective)), delimiter=',')
 
     # predict
+    total_cost, total_length = 0.0, 0
     y_pred = [y+1 for y in ast.predict(X_ts)]
     with open('predictions.txt', 'wt') as f:
         for yp in y_pred:
             f.write(",".join([str(i) for i in yp]) + "\n")
     with open('prediction_result.txt', 'wt') as f:
         for y, yp in zip(y_ts, y_pred):
-            cost = 0.
-            for yhat, ytrue in zip(yp, y):
-                cost += cost_matrix[yhat-1][ytrue-1]
-            
+            cost = cost_matrix[yp-1, y-1].sum()
+            total_cost += cost
+            total_length += len(y)
             f.write("%d,%f,%f\n"%(len(y), cost, cost/len(y)) )
+
+    print ('micro average loss:', total_cost / total_length)
             
     
 

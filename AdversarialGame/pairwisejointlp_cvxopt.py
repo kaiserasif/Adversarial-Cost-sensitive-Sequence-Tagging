@@ -120,8 +120,8 @@ class PairwiseJointLPSovler:
         #         f.write("\n-\n")
         #     f.write("-"*10 + "\n\n")
         # diable glpk messages
-        cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
-        res = cvxopt.solvers.lp(obj, G, H, A, B, solver='glpk')
+        # cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
+        res = cvxopt.solvers.lp(obj, G, H, A, B, solver='glpk', options={'glpk':{'msg_lev':'GLP_MSG_OFF'}})
         if res['status'] != 'optimal':
             print(res)
             exit
