@@ -295,6 +295,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         avg_objectives = np.zeros(self.max_itr)
         times = np.zeros(self.max_itr)
         start_time = time.process_time()
+        perf_time = time.perf_counter()
 
         # adagrad parameters
         rate = self.learning_rate # 0.5
@@ -320,7 +321,9 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             if update_count >= self.max_update: 
                 self.termination_condition = 'max update (%d) exceeded' % update_count
                 break
-            if self.verbose >= 2: print("epoch: ", itr); sys.stdout.flush()
+            if self.verbose >= 2: 
+                print("epoch: %d process_time: %.2f real_time: %.2f" % (itr, time.process_time()-start_time, time.perf_counter()-perf_time) )
+                sys.stdout.flush()
                  
             idx = np.random.permutation(n_sample) 
             avg_grad = np.zeros(self.theta.shape)
