@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import subprocess
 import sys, os
 from concurrent.futures import ProcessPoolExecutor
@@ -25,7 +27,7 @@ def find_diff_of_max_2(nparray):
     return nparray[0] - nparray[1]
 
 
-def train_svm(C, datafile, modelfile):
+def train_svm(C, datafile, modelfile, print_stdout=False):
     options = ['-v', '1', '-c', str(C)]
     if cost_file: options += ['--cost_file', cost_file]
     svm_learn_param = [svm_learn] + options + [datafile, modelfile ]
@@ -33,9 +35,12 @@ def train_svm(C, datafile, modelfile):
     # print(' '.join(svm_learn_param))
     cmd = subprocess.Popen(svm_learn_param, stdout=subprocess.PIPE)
     stdout, stderr = cmd.communicate()
+    if print_stdout:
+        if stdout: print (stdout.decode('utf-8'))
+        if stderr: print (stderr.decode('utf-8'))
     
 
-def test_svm(datafile, modelfile, outputfile):
+def test_svm(datafile, modelfile, outputfile, print_stdout=False):
     options = []
     if cost_file: options = ['--cost_file', cost_file]
     svm_classify_param = [svm_classify] + options + [datafile, modelfile, outputfile]
@@ -43,6 +48,9 @@ def test_svm(datafile, modelfile, outputfile):
     # subprocess.call(svm_classify_param)
     cmd = subprocess.Popen(svm_classify_param, stdout=subprocess.PIPE)
     stdout, stderr = cmd.communicate()
+    if print_stdout:
+        if stdout: print (stdout.decode('utf-8'))
+        if stderr: print (stderr.decode('utf-8'))
     line = stdout.decode('utf-8').split('\n')[-2].strip()
     loss = float(line.split()[-1])
     # print line, loss
@@ -129,9 +137,9 @@ def run_experiment(data_dir):
     C = find_best_C( [train_sequences[i] for i in validation_indices] )
 
     # run main train test
-    train_svm(C, train_file, 'model') # train
-    test_err = test_svm(test_file, 'model', 'prediction.txt') # test
-    print 'test loss:', test_err
+    train_svm(C, train_file, 'model', print_stdout=True) # train
+    test_err = test_svm(test_file, 'model', 'prediction.txt', print_stdout=True) # test
+    print ('test loss:', test_err)
     sys.stdout.flush()
 
 
