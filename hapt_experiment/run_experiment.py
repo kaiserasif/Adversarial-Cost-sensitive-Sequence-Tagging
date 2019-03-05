@@ -125,9 +125,10 @@ def run(data_dir, cost_file, svm_data_dir):
     # save for future use
     np.savetxt('theta.txt', adv_seq.theta, delimiter=',')
     np.savetxt('transistion_theta.txt', adv_seq.transition_theta, delimiter=',')
-    p_hat, p_check = adv_seq.predict_proba_with_trained_theta(X_ts, cost_matrix, adv_seq.theta, adv_seq.transition_theta)
+    
     # save phat and pchecks as merged sequences
     # split them based on sequence lengths
+    p_hat, p_check = adv_seq.predict_proba_with_trained_theta(X_ts, cost_matrix, adv_seq.theta, adv_seq.transition_theta)
     np.savetxt('p_hat.txt', np.concatenate(p_hat, axis=0), delimiter=',')
     np.savetxt('p_check.txt', np.concatenate(p_check, axis=0), delimiter=',')
     
@@ -146,6 +147,30 @@ def run(data_dir, cost_file, svm_data_dir):
             f.write("%d,%f,%f\n"%(len(y), cost, cost/len(y)) )
 
     print ('micro average loss:', total_cost / total_length)
+    
+    # debug training         
+    # save phat and pchecks as merged sequences
+    # split them based on sequence lengths
+    p_hat, p_check = adv_seq.predict_proba_with_trained_theta(X_tr, cost_matrix, adv_seq.theta, adv_seq.transition_theta)
+    np.savetxt('p_hat_training.txt', np.concatenate(p_hat, axis=0), delimiter=',')
+    np.savetxt('p_check_training.txt', np.concatenate(p_check, axis=0), delimiter=',')
+    
+    total_cost, total_length = 0.0, 0
+    y_pred = [y+1 for y in adv_seq.predict(X_tr)]
+    
+    # predict
+    with open('predictions_training.txt', 'wt') as f:
+        for yp in y_pred:
+            f.write(",".join([str(i) for i in yp]) + "\n")
+    with open('prediction_result_training.txt', 'wt') as f:
+        for y, yp in zip(y_tr, y_pred):
+            cost = cost_matrix[yp-1, y-1].sum()
+            total_cost += cost
+            total_length += len(y)
+            f.write("%d,%f,%f\n"%(len(y), cost, cost/len(y)) )
+
+    print ('micro average loss (training):', total_cost / total_length)
+
             
     
 
