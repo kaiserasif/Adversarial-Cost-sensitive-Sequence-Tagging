@@ -105,23 +105,23 @@ def viterbi(x, y, sm, sparm):
     y_bar = [0] * T
     score = [[0.] * n_class for _ in range(T) ]
     history = [[1<<31] * n_class for _ in range(T) ] # for backtracking
+    M = n_class * n_feature # edge_feature offset
     # print x
     for t in range(T):
         # the node features
-        for idx,v in x[t]:
-            # if not 0 <= idx < n_feature: continue # weird issue with very high key values
-            for c in range(n_class):
+        for c in range(n_class):
+            for idx,v in x[t]:
                 score[t][c] += sm.w[c * n_feature + idx] * v
-        # add the loss if y provided
-        if y is not None:
-            score[t][c] += cost_matrix[c][y[t]-1] # 0 based index
-        # search the transition path
-        # for all prev y, search max of score + y-y transistion
-        # 00 01 02 10 11 12 20 21 22
-        # index = Offset + (n_class) * prev_step + cur_step # 0 based index
-        if t > 0:
-            M = n_class * n_feature
-            for c in range(n_class):
+
+            # add the loss if y provided
+            if y is not None:
+                score[t][c] += cost_matrix[c][y[t]-1] # 0 based index
+
+            # search the transition path
+            # for all prev y, search max of score + y-y transistion
+            # 00 01 02 10 11 12 20 21 22
+            # index = Offset + (n_class) * prev_step + cur_step # 0 based index
+            if t > 0:
                 prev_max, prev_max_c = score[t-1][0] + sm.w[M + 0 + c], 0
                 for prev_c in range(1, n_class):
                     tmp = score[t-1][prev_c] + sm.w[M + prev_c * n_class + c]

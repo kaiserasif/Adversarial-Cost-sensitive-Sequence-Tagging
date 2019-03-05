@@ -10,7 +10,7 @@ run using:
         svm_data_save_dir: if provided, svm style features saved
 """
 
-import os, sys
+import os, sys, ast
 
 import numpy as np
 from sklearn import metrics, preprocessing
@@ -85,17 +85,23 @@ def run(data_dir, cost_file, svm_data_dir):
     # load data, scale may not be needed
     X_tr, y_tr, X_ts, y_ts = load_hapt_data(data_dir)
     X_tr, X_ts, _, _ = preprocess(X_tr, X_ts)
-    y_seq = [y-1 for y in y_tr] # for ast, 0 indexed classes
+    y_seq = [y-1 for y in y_tr] # for adv_seq, 0 indexed classes
     
     # load cost_matrix
     cost_matrix = np.loadtxt(cost_file, delimiter=',')
 
-    reg_constant, learning_rate = 0.01, 0.01
+    reg_constant, learning_rate = 0.1, 0. # 0 lr for ada_delta update
+    # if current file contains learning parameters, read them
+    reg_lr_path = os.path.join(os.getcwd(), 'reg_lr.txt')
+    if os.path.exists( reg_lr_path ):
+        with open( reg_lr_path, 'rt' ) as f:
+            reg_constant, learning_rate = ast.literal_eval(f.read())
+            print ("reg_constant:", reg_constant, "learning_rate:", learning_rate)
 
     # extract some random indices of 20% for grid search
     # val_idx = np.random.permutation(len(X_tr))
     # val_idx = val_idx[:len(X_tr) // 5]
-    val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
+    # val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
 
     # save for svm
     if svm_data_dir:
@@ -104,20 +110,25 @@ def run(data_dir, cost_file, svm_data_dir):
         
     
     # now create classifier and train
-    ast = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi', max_update=200000,
+    adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
+            max_update=200000, verbose=3,
             reg_constant=reg_constant, learning_rate=learning_rate)
 
-    # ast, best_param = grid_search(ast, X_tr, y_seq, val_idx)
+    # adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx)
     # print ("best parameter: " + str (best_param) )
 
-    ast.fit(X_tr, y_seq)
+    adv_seq.fit(X_tr, y_seq)
 
     # save for plotting
-    np.savetxt('training_objectives.txt', np.column_stack((ast.epoch_times, ast.average_objective)), delimiter=',')
+    np.savetxt('training_objectives.txt', np.column_stack((adv_seq.epoch_times, adv_seq.average_objective)), delimiter=',')
+
+    # save for future use
+    np.savetxt('theta.txt', adv_seq.theta, delimiter=',')
+    np.savetxt('transistion_theta.txt', adv_seq.transition_theta, delimiter=',')
 
     # predict
     total_cost, total_length = 0.0, 0
-    y_pred = [y+1 for y in ast.predict(X_ts)]
+    y_pred = [y+1 for y in adv_seq.predict(X_ts)]
     with open('predictions.txt', 'wt') as f:
         for yp in y_pred:
             f.write(",".join([str(i) for i in yp]) + "\n")
