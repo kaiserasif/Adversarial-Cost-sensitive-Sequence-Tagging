@@ -111,7 +111,7 @@ def run(data_dir, cost_file, svm_data_dir):
     
     # now create classifier and train
     adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
-            max_update=200000, verbose=3,
+            max_update=2, verbose=3,
             reg_constant=reg_constant, learning_rate=learning_rate)
 
     # adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx)
@@ -125,10 +125,16 @@ def run(data_dir, cost_file, svm_data_dir):
     # save for future use
     np.savetxt('theta.txt', adv_seq.theta, delimiter=',')
     np.savetxt('transistion_theta.txt', adv_seq.transition_theta, delimiter=',')
-
-    # predict
+    p_hat, p_check = adv_seq.predict_proba_with_trained_theta(X_ts, cost_matrix, adv_seq.theta, adv_seq.transition_theta)
+    # save phat and pchecks as merged sequences
+    # split them based on sequence lengths
+    np.savetxt('p_hat.txt', np.concatenate(p_hat, axis=0), delimiter=',')
+    np.savetxt('p_check.txt', np.concatenate(p_check, axis=0), delimiter=',')
+    
     total_cost, total_length = 0.0, 0
     y_pred = [y+1 for y in adv_seq.predict(X_ts)]
+    
+    # predict
     with open('predictions.txt', 'wt') as f:
         for yp in y_pred:
             f.write(",".join([str(i) for i in yp]) + "\n")

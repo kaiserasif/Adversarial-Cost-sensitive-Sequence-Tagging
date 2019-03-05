@@ -65,9 +65,9 @@ class SingleOracle:
         Returns:
         --------
             v : Number : game value
-            p_hat : numpy array of size T x Y 
+            p_hat : 1d-numpy array of length T x Y
             p_check joints : numpy array of size T x Y x Y
-            p_check marginals : numpy array of size T x Y
+            p_check marginals : numpy array of size T x Y 
         """
 
         T = len(sequence)

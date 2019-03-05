@@ -195,6 +195,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         self.verbose = verbose
         self.solver = solver
 
+        self.solver_object = self.theta = self.transition_theta = None
         self.average_objective = np.zeros(0)
         self.epoch_times = np.zeros(0)
         self.termination_condition = ''
@@ -456,6 +457,47 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             Y.append(y_hat)
 
         return Y
+
+
+    def predict_proba(self, X):
+        """
+        Use Single Oracle to get the phat distribution
+        Parameters:
+            X : List of 2-d ndarray
+        Returns:
+            P_hat : [sample][state, class] list of 2-d ndarray
+        """
+        return self.predict_proba_with_trained_theta(
+            X, self.cost_matrix, self.theta, self.transition_theta)[0]
+
+
+    def predict_proba_with_trained_theta(self, X, 
+        cost_matrix, theta, transition_theta):
+        """
+        Use Single Oracle to get the phat distribution
+        Parameters:
+            X : List of 2-d ndarray
+            cost_matrix : n_class x n_class 2d ndarray
+            theta : feature weights, n_features x n_class 2d ndarray
+            transition_theta : edge weights, n_class x n_class 2d ndarray
+        Returns:
+            P_hat : [sample][state, class] list of 2-d ndarray
+            P_check : [sample][state, class] list of 2-d ndarray
+        """
+        n_class = len(cost_matrix)
+        if isinstance(self.solver_object, SingleOracle):
+            predictor = self.solver_object
+        else:
+            predictor = SingleOracle(n_class, cost_matrix)
+            
+        p_hats = []
+        p_checks = []
+        for x in X:
+            _, phat, _, pcheck = predictor.solve_p_hat_p_check(x, theta, transition_theta)
+            p_hats.append( phat.reshape(-1, n_class) )
+            p_checks.append ( np.array(pcheck) )
+
+        return p_hats, p_checks
 
 
     def score(self, X, Y):
