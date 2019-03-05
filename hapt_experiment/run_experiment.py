@@ -111,7 +111,7 @@ def run(data_dir, cost_file, svm_data_dir):
     
     # now create classifier and train
     adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
-            max_update=2, verbose=3,
+            max_update=200000, verbose=3,
             reg_constant=reg_constant, learning_rate=learning_rate)
 
     # adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx)
