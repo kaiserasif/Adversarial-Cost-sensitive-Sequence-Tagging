@@ -88,7 +88,7 @@ def run(data_dir, cost_file, svm_data_dir):
     y_seq = [y-1 for y in y_tr] # for adv_seq, 0 indexed classes
     
     # load cost_matrix
-    cost_matrix = np.loadtxt(cost_file, delimiter=',')
+    cost_matrix = np.loadtxt(cost_file, delimiter=',', dtype=float)
 
     reg_constant, learning_rate = 0.1, 0. # 0 lr for ada_delta update
     # if current file contains learning parameters, read them

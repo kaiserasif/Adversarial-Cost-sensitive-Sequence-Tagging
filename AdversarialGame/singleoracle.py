@@ -41,7 +41,7 @@ class SingleOracle:
             max_itr : maximum iteration for finding best reponses
         """
         self.n_class = n_class
-        self.cost_matrix = cost_matrix
+        self.cost_matrix = 1.0 * cost_matrix # int array causes problem with cvxopt matrix data conversion
         self.max_itr = max_itr
 
 

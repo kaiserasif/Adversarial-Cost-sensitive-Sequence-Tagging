@@ -19,7 +19,7 @@ class PairwiseJointLPSovler:
 
     def __init__(self, n_class, cost_matrix):
         self.n_class = n_class
-        self.cost_matrix = cost_matrix
+        self.cost_matrix = 1.0 * cost_matrix # int array causes problem with cvxopt matrix data conversion
 
         self.lp_cache = {}
 
