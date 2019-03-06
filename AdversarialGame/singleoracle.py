@@ -176,16 +176,16 @@ class SingleOracle:
         A_eq = cvxopt.spmatrix([],[],[], ( T, 1 + n_phats ) )
         for t in range(T):
             for c in range(self.n_class):
-                
+                phat_index = t * self.n_class + c
                 # column offset 1 for the v variable, which is unbounded
                 # for each of the phat vars, -1p <= 0
-                A_ub_list[t * self.n_class + c][1 + t * self.n_class + c] = -1
+                A_ub_list[phat_index][1 + phat_index] = -1
 
                 # for each timestamp t, one row
                 # in each row, 1 (v offset) + t * nclass prev vars, 
                 # then nclass c vars 1 
                 # sums to 1 (b_eq)
-                A_eq[t, 1 + t * self.n_class + c] = 1
+                A_eq[t, 1 + phat_index] = 1
 
         b_ub_list = [0] * n_phats
         b_eq = cvxopt.matrix(1., ( T, 1 ) )

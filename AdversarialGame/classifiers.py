@@ -513,14 +513,14 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
     def batch_optimization(self, X, Y):
         # make a single 1-D variable of the theta's
         # it will be passed to the fun()
+        self.average_objective = []
         def fun(theta):
             theta = theta.reshape(-1, self.n_class)
             self.theta = theta[:-self.n_class]
             self.transition_theta = theta[-self.n_class:]
             obj = 0
             for x, y in zip(X, Y):
-                # obj += self.solve_pairwise_p_check(x, return_objective_only=True)
-                v, _, _ = self.solver_object.solve_for_p_check(x)
+                v, _, _ = self.solver_object.solve_for_p_check(x, self.theta, self.transition_theta)
                 obj += v
                 obj -= self._compute_empirical_feature_potential(x, y) 
             obj /= len(Y)
@@ -536,16 +536,12 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             gradient = np.zeros( self.theta.shape )
             transition_gradient = np.zeros( self.transition_theta.shape )
             for (x, y) in zip(X, Y):
-                # _, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(x)
-                _, pairwise_pcheck, marginal_pcheck = self.solver_object.solve_for_p_check(x)
-                pcheck_feat, empirical_feat, transition_pcheck_feat, transition_empirical_feat \
-                        = self._compute_feature_expectations(x, y, pairwise_pcheck, marginal_pcheck)
-                gradient += pcheck_feat - empirical_feat 
-                transition_gradient += transition_pcheck_feat - transition_empirical_feat 
+                _, g, tg = self._compute_gradient(x, y)
+                gradient += g
+                transition_gradient += tg
             gradient /= len(Y)
             transition_gradient /= len(Y)
-            gradient += self.reg_constant * self.theta
-            transition_gradient += self.reg_constant * self.transition_theta
+        
             return np.concatenate((gradient, transition_gradient), axis=0).flatten()
 
         # for logging
