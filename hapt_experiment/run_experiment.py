@@ -90,12 +90,12 @@ def run(data_dir, cost_file, svm_data_dir):
     # load cost_matrix
     cost_matrix = np.loadtxt(cost_file, delimiter=',', dtype=float)
 
-    reg_constant, learning_rate = 0.1, 0. # 0 lr for ada_delta update
+    reg_constant, learning_rate, batch_size = 0.1, 0., 1 # 0 lr for ada_delta update
     # if current file contains learning parameters, read them
     reg_lr_path = os.path.join(os.getcwd(), 'reg_lr.txt')
     if os.path.exists( reg_lr_path ):
         with open( reg_lr_path, 'rt' ) as f:
-            reg_constant, learning_rate = ast.literal_eval(f.read())
+            reg_constant, learning_rate, batch_size = ast.literal_eval(f.read())
             print ("reg_constant:", reg_constant, "learning_rate:", learning_rate)
 
     # extract some random indices of 20% for grid search
@@ -112,7 +112,7 @@ def run(data_dir, cost_file, svm_data_dir):
     # now create classifier and train
     adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
             max_update=200000, verbose=3,
-            reg_constant=reg_constant, learning_rate=learning_rate)
+            reg_constant=reg_constant, learning_rate=learning_rate, batch_size=batch_size)
 
     # adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx)
     # print ("best parameter: " + str (best_param) )
