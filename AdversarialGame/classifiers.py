@@ -511,9 +511,11 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
 
 
     def batch_optimization(self, X, Y):
+        start_time = time.process_time()
+        perf_time = time.perf_counter()
+        self.average_objective, self.epoch_times = [], []
         # make a single 1-D variable of the theta's
         # it will be passed to the fun()
-        self.average_objective = []
         def fun(theta):
             theta = theta.reshape(-1, self.n_class)
             self.theta = theta[:-self.n_class]
@@ -546,20 +548,20 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
 
         # for logging
         def callback_fun(theta):
-            self.average_objective.append(fun(theta))
+            # global itr
+            obj = fun(theta)
+            self.average_objective.append(obj)
+            self.epoch_times.append(start_time - time.process_time())
+            if self.verbose >= 2:
+                print("epoch: %d process_time: %.2f real_time: %.2f objective: %.2f" % (
+                    len(self.average_objective), time.process_time()-start_time, time.perf_counter()-perf_time, obj) 
+                )
+                sys.stdout.flush()
+    
 
         ####
         # now flatten theta and pass
         theta = np.concatenate((self.theta, self.transition_theta), axis=0).flatten()
-
-        # check gradient 
-        # for _ in range(5):
-        #     print (check_grad(fun, der, np.random.random(theta.shape) - 0.5 ))
-        # # check probabilities
-        # v, pairwise_pcheck, marginal_pcheck = self.solve_pairwise_p_check(X[0])
-        # for t in range(len(Y[0])):
-        #     pr = [i for sub in pairwise_pcheck[t] for i in sub] if t < len(Y[0]) - 1 else []
-        #     print("node:", t, pr, sum(pr), marginal_pcheck[t], sum(marginal_pcheck[t]))
 
         res = minimize(fun, theta, jac=der, tol=1e-6, callback=callback_fun, options={'maxiter': self.max_itr})
         # print (check_grad(fun, der, res.x))
