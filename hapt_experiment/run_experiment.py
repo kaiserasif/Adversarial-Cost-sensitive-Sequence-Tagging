@@ -124,7 +124,7 @@ def run(data_dir, cost_file, svm_data_dir):
 
     # save for future use
     np.savetxt('theta.txt', adv_seq.theta, delimiter=',')
-    np.savetxt('transistion_theta.txt', adv_seq.transition_theta, delimiter=',')
+    np.savetxt('transition_theta.txt', adv_seq.transition_theta, delimiter=',')
     
     # save phat and pchecks as merged sequences
     # split them based on sequence lengths

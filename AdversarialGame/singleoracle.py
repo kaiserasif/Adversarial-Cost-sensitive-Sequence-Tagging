@@ -98,10 +98,19 @@ class SingleOracle:
             loop_count += 1
 
             # solve the lp
-            val, vars_ = self._solve_cvxopt_lp(objective, A_ub_list, b_ub_list, A_eq, b_eq)
+            val, vars_ = self._solve_phat_lp(objective, A_ub_list, b_ub_list, A_eq, b_eq)
+            
+            # redistribute deterministic phats
+            # at the corners, i.e. equal contraints, 
+            # phat can take any of the possible determinitically,
+            # which throws off the pcheck-best-response
+            vars_ = self._adjust_phat(val, vars_, A_ub_list, b_ub_list,
+                        sequence, pcheck_actions, theta, transition_theta)
+            
             phat = vars_[1:] # variables are: v, phat11, phat12, phat21,..., phatTY
             min_gamevalue = val # v is the game value / objective value, since all other objective coeff are 0
-            
+
+
             if min_gamevalue == previous_min_gamevalue:
                 reached_stop = True
                 break
@@ -122,6 +131,9 @@ class SingleOracle:
         
         # after breaking the loop, call for pcheck solution
         max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions, theta, transition_theta)
+        # debug 
+        # if max_gamevalue != previous_min_gamevalue:
+        #     print ("max vs min games: ", max_gamevalue, previous_min_gamevalue, max_gamevalue - previous_min_gamevalue)
         
         # the pcheck is for the ycheck actions, 
         # compute marginals and pairwise-joints 
@@ -229,7 +241,7 @@ class SingleOracle:
         b_ub_list.append(-potential)
 
 
-    def _solve_cvxopt_lp(self, objective, A_ub_list, b_ub_list, A_eq, b_eq):
+    def _solve_phat_lp(self, objective, A_ub_list, b_ub_list, A_eq, b_eq):
         """
         use cvxopt.solvers.lp with glpk to solve the lp
         Parameters:
@@ -258,6 +270,81 @@ class SingleOracle:
             exit
         return res['primal objective'], np.array(res['x'])[:, 0] # a column vector of dense matrix, convert to 1d
 
+    
+    def _adjust_phat(self, val, vars_, A_ub_list, b_ub_list,
+                        sequence, pcheck_actions, theta, transition_theta):
+        """
+        redistribute deterministic phats
+        at the corners, i.e. equal contraints, 
+        phat can take any of the possible determinitically,
+        which throws off the pcheck-best-response.
+        Uses _find_singleoracle_best_pcheck()
+        Parameters:
+            val : gamevalue, wasn't needed, vars_[0] should suffice
+            vars_ : v + phats
+            A_ub_list : constraints lhs
+            b_ub_list : constraints rhs
+            sequence : the features of the sequence
+            pcheck_actions : the p_check actions
+            theta : feature weights
+            transition_theta: edge weights
+        Returns:
+            vars_ : adjusted phat values
+        """
+        # print ('checking equal constraints...')
+        epsilon = 1e-8
+        T = len(pcheck_actions[0])
+        n_class = self.n_class
+        # first check how many constraints are equal 
+        # A_ub_list also contains the phat >= 0 conditions at the beginning
+        n_phats = T * n_class # skip phat prob contraints
+        eqaulconstraints = 0
+        for ia in range(n_phats, len(b_ub_list)):
+            # check if constraint was met with equality
+            if abs ( vars_[0] + sum([A_ub_list[ia][iv] * vars_[iv] 
+                        for iv in range(1, n_phats + 1)])
+                         - b_ub_list[ia]
+            ) < epsilon: eqaulconstraints += 1
+
+        # if none, nothing to adjust
+        if eqaulconstraints <= 1: return vars_
+        
+        # debug:
+        print ('equal constraints: ', eqaulconstraints)
+
+        # for each set of T phats, 
+        # adjust if multiple yhat could acheive same 
+        # constraint values based on pcheck_action_distribution
+
+        max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions, theta, transition_theta)
+        if abs(max_gamevalue - vars_[0]) < epsilon: print ("_adjust_phat():", max_gamevalue, vars_[0])
+
+        det_phats = abs( vars_[1:] - 1 ) < epsilon
+        for t in range(T):
+            if det_phats[t * n_class : (t+1) * n_class].any():
+                det_idx = -1
+                for y_hat in range(n_class):
+                    if det_phats[t * n_class + y_hat]:
+                        det_idx = y_hat
+                        break
+                print ('deterministic phats: t=%d, y=%d'%(t, det_idx) )
+                # otherwise nothing to adjust for this time step
+                # compute the Cpcheck
+                Cpcheck = [0] * n_class # for Y phats
+                for ia, pcheck_a in enumerate(pcheck_dist):
+                    for y_hat in range(n_class):
+                        Cpcheck[y_hat] += A_ub_list[n_phats + ia][1 + T * n_class + y_hat] * pcheck_a
+
+                # count equal 
+                equal_y_hats = [abs(Cpcheck[det_idx] - Cpcheck[y]) < epsilon for y in range(n_class) ]
+                count = sum( equal_y_hats )
+                if count > 1:
+                    for y_hat in range(n_class):
+                        if equal_y_hats[y_hat]: vars_[1 + t * n_class + y_hat ] = 1.0 / count
+                print ('equal p_hats: %d' % count)
+        return vars_
+
+        
 
     def _find_singleoracle_best_pcheck(self, sequence, phat, theta, transition_theta):
         """
