@@ -23,6 +23,8 @@ class PairwiseJointLPSovler:
 
         self.lp_cache = {}
 
+        print ('cvxopt pairwise marginals')
+
 
     def _get_lp_for_len(self, T):
         """

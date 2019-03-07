@@ -44,6 +44,8 @@ class SingleOracle:
         self.cost_matrix = 1.0 * cost_matrix # int array causes problem with cvxopt matrix data conversion
         self.max_itr = max_itr
 
+        print ('cvxopt single oracle')
+
 
     def set_param(self, **kwargs):
         """

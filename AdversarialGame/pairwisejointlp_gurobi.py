@@ -15,6 +15,8 @@ class PairwiseJointLPSovler:
 
         self.lp_cache = {}
 
+        print ('gurobi pairwise marginals')
+
 
     def _get_lp_for_len(self, T):
         """
