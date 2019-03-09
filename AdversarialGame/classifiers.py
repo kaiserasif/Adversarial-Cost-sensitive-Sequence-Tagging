@@ -16,6 +16,7 @@ from .zerosum import ZerosumGame
 from .pairwisejointlp_cvxopt import PairwiseJointLPSovler as Cvxsolver
 from .pairwisejoint import PairwiseJoint
 from .singleoracle import SingleOracle
+from .singleoracle_gurobi import SingleOracle as SingleOracle_g
 
         
 class CostSensitiveClassifier():
@@ -287,6 +288,8 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         # self.cvxsolver = Cvxsolver(self.n_class, self.cost_matrix)
         if "singleoracle" == self.solver:
             self.solver_object = SingleOracle(self.n_class, self.cost_matrix)
+        elif "singleoracle_gurobi" == self.solver:
+            self.solver_object = SingleOracle_g(self.n_class, self.cost_matrix)
         else:
             self.solver_object = PairwiseJoint(self.n_class, self.cost_matrix, self.solver)
      
@@ -485,10 +488,10 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             P_check : [sample][state, class] list of 2-d ndarray
         """
         n_class = len(cost_matrix)
-        if isinstance(self.solver_object, SingleOracle):
+        if isinstance(self.solver_object, SingleOracle_g):
             predictor = self.solver_object
         else:
-            predictor = SingleOracle(n_class, cost_matrix)
+            predictor = SingleOracle_g(n_class, cost_matrix)
             
         p_hats = []
         p_checks = []

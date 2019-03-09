@@ -1,6 +1,5 @@
 import numpy as np
-# from scipy.optimize import linprog # cannot rely on linprog
-import cvxopt
+import gurobipy as gp
 
 class SingleOracle:
     """
@@ -44,7 +43,13 @@ class SingleOracle:
         self.cost_matrix = 1.0 * cost_matrix # int array causes problem with cvxopt matrix data conversion
         self.max_itr = max_itr
 
-        print ('cvxopt single oracle')
+        # could be too many, 
+        # but gurobi is slow in creating new ones
+        # trade off
+        self.phat_lp_cache = {} 
+        self.pchek_lp_cache = {}
+
+        print ('gurobi single oracle')
 
 
     def set_param(self, **kwargs):
@@ -80,13 +85,14 @@ class SingleOracle:
         
         # construct the lp and solve for P_hat
         """ Minimize: c^T * x
-                Subject to: A_ub * x <= b_ub
+                Subject to: A_ub * x >= b_ub
                 A_eq * x == b_eq 
         """
-        objective, A_ub_list, b_ub_list, A_eq, b_eq = self._initialize_singleoracle_phat_lp(T)
-        for action in pcheck_actions: 
-            self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list,
-                action, theta, transition_theta)
+        # get the model without the y_check_action contraints
+        model = self._initialize_singleoracle_phat_lp(T)
+        for ia in range(len(pcheck_actions)): 
+            self._add_singleoracle_constraint_for_pcheck_action(sequence, model,
+                pcheck_actions, ia, theta, transition_theta)
             
         # use cvxopt for sparse matrices?
         # http://cvxopt.org/userguide/coneprog.html#linear-programming 
@@ -100,13 +106,13 @@ class SingleOracle:
             loop_count += 1
 
             # solve the lp
-            val, vars_ = self._solve_phat_lp(objective, A_ub_list, b_ub_list, A_eq, b_eq)
+            val, vars_ = self._solve_phat_lp(model)
             
             # redistribute deterministic phats
             # at the corners, i.e. equal contraints, 
             # phat can take any of the possible determinitically,
             # which throws off the pcheck-best-response
-            vars_ = self._adjust_phat(val, vars_, A_ub_list, b_ub_list,
+            vars_ = self._adjust_phat(val, vars_,
                         sequence, pcheck_actions, theta, transition_theta)
             
             phat = vars_[1:] # variables are: v, phat11, phat12, phat21,..., phatTY
@@ -128,8 +134,8 @@ class SingleOracle:
             # add best response to the actions, repeat
             if new_action not in pcheck_actions :
                 pcheck_actions.append(new_action)
-                self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list,
-                    new_action, theta, transition_theta)
+                self._add_singleoracle_constraint_for_pcheck_action(sequence, model,
+                pcheck_actions, len(pcheck_actions)-1, theta, transition_theta)
         
         # after breaking the loop, call for pcheck solution
         max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions, theta, transition_theta)
@@ -168,69 +174,68 @@ class SingleOracle:
     def _initialize_singleoracle_phat_lp(self, T):
         """
         phat single oracle lp is:
-        min v + (phat 0's), such that phat >= 0, sum phat = 1 for each t
+        min v + (phat 0's), such that phat >= 0, sum phat_t = 1 for each t
         and v >= potential for each ycheck combination + sum phat * cost of ycheck combination
-        i.e. -v + phat * cost (for all T) <= -potential ; for all ycheck combination
-        cvxopt don't have bounds, so phat >= 0 variables should also be in A_ub <= b_ub matrix
-        for var = 2 to T+1, -var <= 0 in A_ub <= b_ub matrix
         Parameters:
             T : length of the sequence
         Returns:
-            objective : 1 + 0 + .... + 0 (1 + n_class * T length)
-            A_ub_list : no pcheck actions added, only -phat <= 0
-            b_ub_list : 0 for each phat, lists for enabling appending new actions
-            A_eq : 1+...+1 for each set of the T phats 
-            b_eq : 1 for each set of T phats
+            gurobi model
         """
-        n_phats = T * self.n_class
+        if T not in self.phat_lp_cache:
+            n_class = self.n_class
+
+            model = gp.Model("single_oracle_p_hat_solver")
+            model.setParam('OutputFlag', 0)
+
+            variables = []
+            # add the v variable, not bounded
+            variables.append( model.addVar(lb=-gp.GRB.INFINITY, name="v" ) )
+            # add the p_hat variables
+            for t in range(T):
+                for y in range(n_class):
+                    variables.append( model.addVar(lb=0.0, ub=1.0, name="y_%d_p_%d"%(t, y) ) )
+            # set objective
+            model.setObjective(variables[0], gp.GRB.MINIMIZE)
+            
+            # add equality constraints
+            for t in range(T):
+                phat_index = 1 + t * n_class
+                # for each timestamp t,
+                # 1 (v offset) + t * nclass prev vars, 
+                # to 1 + (t + 1) * n_class p_hats sums to 1
+                model.addConstr(sum(variables[phat_index : phat_index + n_class]) == 1, "ceqt_%d"%(t))
+
+            model.update()
+            self.phat_lp_cache[T] = model
         
-        objective = cvxopt.matrix([1.] + [0.] * n_phats )
-        
-        A_ub_list = [[0] * (1 + n_phats) for _ in range(n_phats)]
-        A_eq = cvxopt.spmatrix([],[],[], ( T, 1 + n_phats ) )
-        for t in range(T):
-            for c in range(self.n_class):
-                phat_index = t * self.n_class + c
-                # column offset 1 for the v variable, which is unbounded
-                # for each of the phat vars, -1p <= 0
-                A_ub_list[phat_index][1 + phat_index] = -1
-
-                # for each timestamp t, one row
-                # in each row, 1 (v offset) + t * nclass prev vars, 
-                # then nclass c vars 1 
-                # sums to 1 (b_eq)
-                A_eq[t, 1 + phat_index] = 1
-
-        b_ub_list = [0] * n_phats
-        b_eq = cvxopt.matrix(1., ( T, 1 ) )
-        
-        return objective, A_ub_list, b_ub_list, A_eq, b_eq
+        return self.phat_lp_cache[T].copy()
 
 
-    def _add_singleoracle_constraint_for_pcheck_action(self, sequence, A_ub_list, b_ub_list,
-        action, theta, transition_theta):
+    def _add_singleoracle_constraint_for_pcheck_action(self, sequence, model,
+        pcheck_actions, ia, theta, transition_theta):
         """
-        compute A_ub <= b_ub constraint for the specified pheck action
-        - v + phat * cost (for all T) <= - potential
+        compute A_ub >= b_ub constraint for the specified pheck action
+        v >= potential + phat * cost (for all T)
         Parameters:
             sequence : numpy.2d-array
-            A_ub_list : List[List[float]]
-            b_ub_list : List[float]
-            action : numpy.1d-array
+            model : gurobi model where the constraint will be added
+            pcheck_action : list [ numpy.1d-array ]
+            ia : index of action to add
             theta : numpy matrix of size: n_feature x n_class 
             transition_theta : numpy matrix of size: n_class x n_class
         """
+        action = pcheck_actions[ia]
         T = len(action)
-        n_phats = T * self.n_class
-        new_row = [-1.] + [0] * n_phats
+        n_class = self.n_class
         potential = 0.
+        lhs = model.getVarByName("v")
+        rhs = 0.
 
         for t in range(T):
-
-            # -v + cost[phat_t, p_check_t]..
-            for c in range(self.n_class):
+            # \sum cost[phat_t, p_check_t] 
+            for y in range(n_class):
                 # for t-th node, cost is phat's row vs p-check's t-th action
-                new_row [1 + t * self.n_class + c] = self.cost_matrix[c, action[t]]
+                rhs += model.getVarByName("y_%d_p_%d"%(t, y)) * self.cost_matrix[y, action[t]]
 
             # compute the theta * features
             # similar to empirical features, since not stochastic
@@ -238,42 +243,31 @@ class SingleOracle:
             if t > 0:
                 potential += transition_theta[action[t-1], action[t]]
 
-        # append this new constraint to A_ub and b_ub
-        A_ub_list.append(new_row)
-        b_ub_list.append(-potential)
+        rhs += potential
+        model.addConstr(lhs >= rhs, "c_action_%d"%ia)
+
+        model.update()
 
 
-    def _solve_phat_lp(self, objective, A_ub_list, b_ub_list, A_eq, b_eq):
+    def _solve_phat_lp(self, model):
         """
         use cvxopt.solvers.lp with glpk to solve the lp
         Parameters:
-            objective : 1-d cvxopt dense matrix
-            A_ub_list : List[List[float]]
-            b_ub_list : List[float]
-            A_eq : cvxopt.spmatrix
-            b_eq : 1-d cvxopt.matrix
+            model : gurobi model
         Returns:
             primal_objective : float
             variables : np.array 1d
         """
-        # should this be sparse? 
-        # another conversion will be needed
-        # but solving lp, does it give low performance with 
-        # dense matrix having -phat <= 0 for T * nclass rows?
-        # cvxopt converts a list in column major order
-        # so np.array is created to preserver the orientation
-        A_ub = cvxopt.matrix (np.array(A_ub_list)) 
-        b_ub = cvxopt.matrix (b_ub_list)
-        # diable glpk messages
-        # cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
-        res = cvxopt.solvers.lp(objective, A_ub, b_ub, A_eq, b_eq, solver='glpk', options={'glpk':{'msg_lev':'GLP_MSG_OFF'}})
-        if res['status'] != 'optimal':
-            print(res)
-            exit
-        return res['primal objective'], np.array(res['x'])[:, 0] # a column vector of dense matrix, convert to 1d
+        model.reset()
+        model.optimize()
+        if model.Status != gp.GRB.OPTIMAL: print('Gurobi solution status: {}'.format(model.Status) )
+
+        vars_ = np.array([v.x for v in model.getVars()])
+        return model.getObjective().getValue(), vars_
+
 
     
-    def _adjust_phat(self, val, vars_, A_ub_list, b_ub_list,
+    def _adjust_phat(self, val, vars_,
                         sequence, pcheck_actions, theta, transition_theta):
         """
         redistribute deterministic phats
@@ -284,8 +278,6 @@ class SingleOracle:
         Parameters:
             val : gamevalue, wasn't needed, vars_[0] should suffice
             vars_ : v + phats
-            A_ub_list : constraints lhs
-            b_ub_list : constraints rhs
             sequence : the features of the sequence
             pcheck_actions : the p_check actions
             theta : feature weights
@@ -299,27 +291,43 @@ class SingleOracle:
         n_class = self.n_class
         # first check how many constraints are equal 
         # A_ub_list also contains the phat >= 0 conditions at the beginning
-        n_phats = T * n_class # skip phat prob contraints
         eqaulconstraints = 0
-        for ia in range(n_phats, len(b_ub_list)):
+
+        for ia in range(len(pcheck_actions)):
+            potential = 0.
+            lhs = vars_[0]
+            rhs = 0.
+            action = pcheck_actions[ia]
+
+            for t in range(T):
+                # \sum cost[phat_t, p_check_t] 
+                for y in range(n_class):
+                    # for t-th node, cost is phat's row vs p-check's t-th action
+                    rhs += vars_[1 + t * n_class + y] * self.cost_matrix[y, action[t]]
+
+                # compute the theta * features
+                # similar to empirical features, since not stochastic
+                potential += np.dot(sequence[t,:], theta[:, action[t]])
+                if t > 0:
+                    potential += transition_theta[action[t-1], action[t]]
+
+            rhs += potential
+
             # check if constraint was met with equality
-            if abs ( vars_[0] + sum([A_ub_list[ia][iv] * vars_[iv] 
-                        for iv in range(1, n_phats + 1)])
-                         - b_ub_list[ia]
-            ) < epsilon: eqaulconstraints += 1
+            if abs ( lhs - rhs ) < epsilon: eqaulconstraints += 1
 
         # if none, nothing to adjust
         if eqaulconstraints <= 1: return vars_
         
         # debug:
-        # print ('equal constraints: ', eqaulconstraints)
+        # print ('equal constraints:', eqaulconstraints)
 
         # for each set of T phats, 
         # adjust if multiple yhat could acheive same 
         # constraint values based on pcheck_action_distribution
 
         max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions, theta, transition_theta)
-        if abs(max_gamevalue - vars_[0]) < epsilon: print ("_adjust_phat():", max_gamevalue, vars_[0])
+        if abs(max_gamevalue - vars_[0]) < epsilon: print ("_adjust_phat() game values:", max_gamevalue, vars_[0])
 
         det_phats = abs( vars_[1:] - 1 ) < epsilon
         for t in range(T):
@@ -335,7 +343,7 @@ class SingleOracle:
                 Cpcheck = [0] * n_class # for Y phats
                 for ia, pcheck_a in enumerate(pcheck_dist):
                     for y_hat in range(n_class):
-                        Cpcheck[y_hat] += A_ub_list[n_phats + ia][1 + T * n_class + y_hat] * pcheck_a
+                        Cpcheck[y_hat] += self.cost_matrix[y_hat, pcheck_actions[ia][t]] * pcheck_a
 
                 # count equal 
                 equal_y_hats = [abs(Cpcheck[det_idx] - Cpcheck[y]) < epsilon for y in range(n_class) ]
@@ -343,7 +351,7 @@ class SingleOracle:
                 if count > 1:
                     for y_hat in range(n_class):
                         if equal_y_hats[y_hat]: vars_[1 + t * n_class + y_hat ] = 1.0 / count
-                    print ('equal p_hats: %d' % count)
+                    print ('equal p_hats: %d' % count, Cpcheck)
         return vars_
 
         
@@ -405,7 +413,7 @@ class SingleOracle:
         return np.max(cumu_pot[-1]), y_check
 
 
-    def _pcheck_singleoracle(self, sequence,  pcheck_actions, theta, transition_theta):
+    def _pcheck_singleoracle(self, sequence, pcheck_actions, theta, transition_theta):
         """
         Compute pcheck distribution using single oracle method
         Parameters :
@@ -418,56 +426,62 @@ class SingleOracle:
             pcheck : List[float] of len(pcheck_actions)
         """
         # max_{pchecks, v_t for t} sum v_t + potential (p_check)
-        # min_ -sum v_t - potentials(pcheck)
         # s.t. sum pchecks = 1 # A_eq = b_eq, one constraint
-        # v_t <= C[yhat(t)] * pchecks
-        #   v_t - C[yhat(t)] * pchecks <= 0, for all t, for all y_hat
-        # -pcheck <= 0 for all pcheck in pchecks
+        # v_t <= C[yhat(t)] * pchecks, for all t, for all y_hat
+        # cannot be cached, since set of actions may vary lp to lp
+        # constraints and objective both depends on it, and too many combinations
 
         x = sequence
         n_action = len(pcheck_actions)
         T = len(sequence)
+        n_class = self.n_class
 
-        objective = cvxopt.matrix([-1.] * (T) + [0.] * n_action) 
+        model = gp.Model("single_oracle_p_check_solver")
+        model.setParam('OutputFlag', 0)
+            
+        # add variables
+        variables = []
+        for t in range(T):
+            variables.append( model.addVar(lb=-gp.GRB.INFINITY, name="v_%d"%t ) )
+        for ia in range(n_action): # one var for each pcheck action
+            variables.append( model.addVar(lb=0.0, ub=1.0, name="y_action_%d"%ia ) )
+            
+        objective = [1.] * (T) + [0.] * n_action
         
-        # A_eq = b_eq
-        A_eq = 1 + objective.T # all v's are 0, p_actions 1, so 1 + obj = 0... 1,1,1..
-        b_eq = cvxopt.matrix(1.)
-        
-        A_ub = cvxopt.spmatrix([], [], [], (T * self.n_class + n_action, T + n_action) )
-
         for t in range(T):
             for i in range(n_action):
-                objective[T + i] -= np.dot(x[t], theta[:, pcheck_actions[i][t]])
+                objective[T + i] += np.dot(x[t], theta[:, pcheck_actions[i][t]])
                 if t > 0: # pairwise links
-                    objective[T + i] -= transition_theta[pcheck_actions[i][t-1], pcheck_actions[i][t]]
-
-            # A_ub <= b_ub
-            # v_t - C[yhat(t), ychecks[t]] <= 0
-            for yhat in range(self.n_class):
+                    objective[T + i] += transition_theta[pcheck_actions[i][t-1], pcheck_actions[i][t]]
+            
+            # v_t <= C[yhat(t)] * pchecks, for all t, for all y_hat
+            for yhat in range(n_class):
                 # v_t for each phat
-                row = t * self.n_class + yhat
-                A_ub[row, t] = 1 # v_t
+                rhs = 0.
                 # - C[yhat(t), ychecks[t]] for each ycheck actions, after T variables
                 for i in range(n_action):
                     if self.cost_matrix[yhat, pcheck_actions[i][t]]:
-                        A_ub[row, T + i] = -self.cost_matrix[yhat, pcheck_actions[i][t]]
+                        rhs += self.cost_matrix[yhat, pcheck_actions[i][t]]
 
-        # -pcheck <= 0 for all pcheck in pchecks
-        for i in range(n_action):
-            A_ub[T * self.n_class + i, T + i] = -1
+                model.addConstr(variables[t], gp.GRB.LESS_EQUAL, rhs, "c_y_%d_p_%d" % (t, yhat) )
 
-        # b_ub is 0 for all
-        b_ub = cvxopt.matrix([0.] * (T * self.n_class + n_action) )
+        # set the probability simplex constraint
+        model.addConstr(sum(variables[T: ])==1, "c_prob")
+
+        # set the objective
+        model.setObjective(
+            sum([v * o for v,o in zip(variables, objective)]),
+            gp.GRB.MAXIMIZE
+        )
+
+        model.update()
 
         # solve it
-        # cvxopt.solvers.options['glpk'] = {'msg_lev' : 'GLP_MSG_OFF'}
-        res = cvxopt.solvers.lp(objective, A_ub, b_ub, A_eq, b_eq, solver='glpk', options={'glpk':{'msg_lev':'GLP_MSG_OFF'}})
-        if res['status'] != 'optimal':
-            print(res)
-            exit
-        gamevalue, pcheck_dist = -res['primal objective'], np.array(res['x'])[T:, 0] 
-        return gamevalue, pcheck_dist
+        model.optimize()
+
+        if model.Status != gp.GRB.OPTIMAL: print('Gurobi non-optimal solution status: %d'%model.Status )
+        vars_ = np.array([v.x for v in model.getVars()])
+        return model.getObjective().getValue(), vars_[T:]
 
 
     def _compute_marginal_and_pairwise(self, pcheck_dist, pcheck_action):
