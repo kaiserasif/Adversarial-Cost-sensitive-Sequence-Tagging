@@ -11,10 +11,12 @@ run using:
 """
 
 import os, sys, ast
+import pickle
 
 import numpy as np
 from sklearn import metrics, preprocessing
 from sklearn.model_selection import KFold, GridSearchCV
+from sklearn.kernel_approximation import RBFSampler
 
 from AdversarialGame.classifiers import CostSensitiveSequenceTagger
 
@@ -48,6 +50,8 @@ def load_hapt_data(data_dir = '/Users/kaiser/Downloads/Dataset/Sequence/HAPT Dat
 
 def preprocess(X_tr, X_ts, poly_degree=1):
     """
+    If current directory contains RBFSampler.txt then 
+    use RBFSampler, otherwise,
     Do polynomial transform
     also return the combined transform, incase needed
 
@@ -55,15 +59,21 @@ def preprocess(X_tr, X_ts, poly_degree=1):
     so, only polynomial transformation is done
     default is 1, since 561 fetures is already too many
     """
-    poly = preprocessing.PolynomialFeatures(degree=poly_degree, interaction_only=False)
+    rbf_path = os.path.join(os.getcwd(), 'RBFSampler.txt')
+    if os.path.exists( rbf_path ):
+        with open( rbf_path, 'rt' ) as f:
+            kwargs = ast.literal_eval(f.read())
+            transformer = RBFSampler(**kwargs)
+    else:
+        transformer = preprocessing.PolynomialFeatures(degree=poly_degree, interaction_only=False)
     
-    X_comb_tr = poly.fit_transform(np.concatenate(X_tr, axis=0))
-    X_comb_ts = poly.transform(np.concatenate(X_ts, axis=0))
+    X_comb_tr = transformer.fit_transform(np.concatenate(X_tr, axis=0))
+    X_comb_ts = transformer.transform(np.concatenate(X_ts, axis=0))
 
-    X_tr = [poly.transform(x) for x in X_tr]
-    X_ts = [poly.transform(x) for x in X_ts]
+    X_tr = [transformer.transform(x) for x in X_tr]
+    X_ts = [transformer.transform(x) for x in X_ts]
 
-    return X_tr, X_ts, X_comb_tr, X_comb_ts
+    return X_tr, X_ts, X_comb_tr, X_comb_ts, transformer
 
 
 def grid_search(clf, X_tr, y_seq, val_idx):
@@ -84,14 +94,14 @@ def grid_search(clf, X_tr, y_seq, val_idx):
 def run(data_dir, cost_file, svm_data_dir):
     # load data, scale may not be needed
     X_tr, y_tr, X_ts, y_ts = load_hapt_data(data_dir)
-    X_tr, X_ts, _, _ = preprocess(X_tr, X_ts)
-    y_seq = [y-1 for y in y_tr] # for adv_seq, 0 indexed classes
+    X_tr, X_ts, _, _, transformer = preprocess(X_tr, X_ts)
+    print (transformer.__class__.__name__, transformer.get_params())
     
     # load cost_matrix
     cost_matrix = np.loadtxt(cost_file, delimiter=',', dtype=float)
 
     reg_constant, learning_rate, batch_size = 0.1, 0., 1 # 0 lr for ada_delta update
-    # if current file contains learning parameters, read them
+    # if current dir contains learning parameters, read them
     reg_lr_path = os.path.join(os.getcwd(), 'reg_lr.txt')
     if os.path.exists( reg_lr_path ):
         with open( reg_lr_path, 'rt' ) as f:
@@ -108,6 +118,7 @@ def run(data_dir, cost_file, svm_data_dir):
         save_data_svmlight_format(os.path.join(svm_data_dir, 'train.dat'), X_tr, y_tr, start_feature=1)
         save_data_svmlight_format(os.path.join(svm_data_dir, 'test.dat'), X_ts, y_ts, start_feature=1)
         
+    y_seq = [y-1 for y in y_tr] # for adv_seq, 0 indexed classes
     
     # now create classifier and train
     adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
@@ -118,6 +129,13 @@ def run(data_dir, cost_file, svm_data_dir):
     # print ("best parameter: " + str (best_param) )
 
     adv_seq.fit(X_tr, y_seq)
+
+    # save the transformer and classifier
+    with open ('model.pkl') as fid:
+        pickle.dump(adv_seq, fid)
+    save_params = {'transformer' : transformer}
+    with open( 'save_params.pkl', 'wb' ) as fid:
+        pickle.dump(save_params, fid) 
 
     # save for plotting
     np.savetxt('training_objectives.txt', np.column_stack((adv_seq.epoch_times, adv_seq.average_objective)), delimiter=',')

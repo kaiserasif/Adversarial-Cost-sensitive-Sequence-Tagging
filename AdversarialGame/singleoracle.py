@@ -222,7 +222,7 @@ class SingleOracle:
         """
         T = len(action)
         n_phats = T * self.n_class
-        new_row = [-1.] + [0] * n_phats
+        new_row = [-1.] + [0.] * n_phats
         potential = 0.
 
         for t in range(T):
@@ -261,7 +261,7 @@ class SingleOracle:
         # but solving lp, does it give low performance with 
         # dense matrix having -phat <= 0 for T * nclass rows?
         # cvxopt converts a list in column major order
-        # so np.array is created to preserver the orientation
+        # so np.array is created to preserve the orientation
         A_ub = cvxopt.matrix (np.array(A_ub_list)) 
         b_ub = cvxopt.matrix (b_ub_list)
         # diable glpk messages
@@ -368,11 +368,13 @@ class SingleOracle:
         # above goes from end to front, we do front to back
         T = len(sequence)
         x = sequence
+        tolerance = 1e-6
 
         pair_pot = transition_theta # links are only boolean
 
         cumu_pot = np.zeros((T, self.n_class))
         history = np.zeros(cumu_pot.shape, dtype=int) 
+        multi_history = {}
 
         cumu_pot[0, :] = ( np.dot(x[0], theta) # local feature feature potential    
                         + np.dot(phat[:self.n_class], self.cost_matrix) # expectation: phat * cost
@@ -380,28 +382,55 @@ class SingleOracle:
                 
         # rest of the sequence
         for t in range(1, T):
+            if t not in multi_history:
+                multi_history[t] = {}
             x_pots_costs = ( np.dot(x[t], theta)
                     + np.dot(phat[t * self.n_class : (t+1) * self.n_class], self.cost_matrix)
             )
             for y_check in range(self.n_class):
                 hist = 0
+                if y_check not in multi_history[t]:
+                    multi_history[t][y_check] = [0]
                 max_pot = cumu_pot[t-1, hist] + pair_pot[hist, y_check]
-                for prev_y in range(self.n_class):
+                for prev_y in range(1, self.n_class):
                     prev_pot = cumu_pot[t-1, prev_y] + pair_pot[prev_y, y_check]
                     if prev_pot > max_pot:
                         max_pot = prev_pot
                         hist = prev_y
+                        multi_history[t][y_check] = [prev_y]
+                    elif abs (prev_pot - max_pot) <= tolerance:
+                        multi_history[t][y_check].append(prev_y)
                 cumu_pot[t, y_check] = max_pot + x_pots_costs[y_check]
                 history[t, y_check] = hist
                 
+        def backtrack_multi_path(multi_history, t, y):
+            if t == 1: return multi_history[t][y]
+            ret = []
+            for yp in multi_history[t][y]:
+                prev = backtrack_multi_path(multi_history, t-1, yp)
+                for path in prev:
+                    ret.append(path + [y])
+            return ret
+        actions = []
+        c = np.argmax(cumu_pot[-1])
+        for y in range(self.n_class):
+            if abs(c - cumu_pot[-1][y]) <= tolerance:
+                actions.extend (backtrack_multi_path(multi_history, T-1, y) )
         # argmax
+        # print ('multi history\n', multi_history)
+        # print ('actions:\n')
+        # for row in actions: print (row)
+        # print ('edge potentials:\n', pair_pot)
+        # print ('cumulative potentials:')
+        # for row in cumu_pot.T:
+        #     print (row)
         c = np.argmax(cumu_pot[-1])
         y_check = [-1] * T
         y_check[T-1] = c 
         for t in range(T-1, 0, -1):
             c = history[t, c] # backtrack target from this step
             y_check[t-1] = c
-
+        # print (np.max(cumu_pot[-1]), y_check)
         return np.max(cumu_pot[-1]), y_check
 
 

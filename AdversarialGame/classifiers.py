@@ -488,10 +488,10 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             P_check : [sample][state, class] list of 2-d ndarray
         """
         n_class = len(cost_matrix)
-        if isinstance(self.solver_object, SingleOracle_g):
+        if isinstance(self.solver_object, SingleOracle):
             predictor = self.solver_object
         else:
-            predictor = SingleOracle_g(n_class, cost_matrix)
+            predictor = SingleOracle(n_class, cost_matrix)
             
         p_hats = []
         p_checks = []
@@ -554,7 +554,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             # global itr
             obj = fun(theta)
             self.average_objective.append(obj)
-            self.epoch_times.append(start_time - time.process_time())
+            self.epoch_times.append(time.process_time() - start_time)
             if self.verbose >= 2:
                 print("epoch: %d process_time: %.2f real_time: %.2f objective: %.2f" % (
                     len(self.average_objective), time.process_time()-start_time, time.perf_counter()-perf_time, obj) 
@@ -566,7 +566,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         # now flatten theta and pass
         theta = np.concatenate((self.theta, self.transition_theta), axis=0).flatten()
 
-        res = minimize(fun, theta, jac=der, tol=1e-6, callback=callback_fun, options={'maxiter': self.max_itr})
+        res = minimize(fun, theta, jac=der, tol=1e-8, callback=callback_fun, options={'maxiter': self.max_itr})
         # print (check_grad(fun, der, res.x))
 
         ####
