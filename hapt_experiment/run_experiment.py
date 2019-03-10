@@ -96,9 +96,9 @@ def grid_search_rbfsampler_advseq(X_tr, y_seq, estimator, val_idx):
     # extract the sequences to be used
     X_tr = [X_tr[i] for i in val_idx]
     y_seq = [y_seq[i] for i in val_idx]
-    param_grid = {'adv_seq__reg_constant' : ( 0.001, 0.01, 0.1, 1., 10.), 
-                    'rbfsampler__gamma': (.1, 1, 2, 10),
-                    'rbfsampler__n_components': (2000, 5000, 10000) } 
+    param_grid = {'adv_seq__reg_constant' : ( 0.001, 0.1, 1.), 
+                    'rbfsampler__gamma': (10, 100, 1000),
+                    'rbfsampler__n_components': (5000, 10000) } 
     kfold = KFold(3, shuffle=False)
     gs = GridSearchCV(estimator, param_grid, cv=kfold.split(X_tr))
     gs.fit(X_tr, y_seq)
