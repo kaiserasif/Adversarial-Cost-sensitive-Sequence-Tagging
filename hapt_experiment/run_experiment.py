@@ -17,6 +17,7 @@ import numpy as np
 from sklearn import metrics, preprocessing
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.kernel_approximation import RBFSampler
+from sklearn.pipeline import Pipeline
 
 from AdversarialGame.classifiers import CostSensitiveSequenceTagger
 
@@ -76,17 +77,30 @@ def preprocess(X_tr, X_ts, poly_degree=1):
     return X_tr, X_ts, X_comb_tr, X_comb_ts, transformer
 
 
-def grid_search(clf, X_tr, y_seq, val_idx):
+def grid_search(clf, X_tr, y_seq, val_idx, param_grid):
 
     # extract the sequences to be used
     X_tr = [X_tr[i] for i in val_idx]
     y_seq = [y_seq[i] for i in val_idx]
 
-    param_grid = {'reg_constant' : (0.0001, 0.001, 0.01, 0.1, 1., 2., 10.), 
-                    'learning_rate': (0.003, 0.01, 0.03, 0.1, 0.3) } 
+    # param_grid = {'reg_constant' : (0.0001, 0.001, 0.01, 0.1, 1., 2., 10.), 
+    #                 'learning_rate': (0.003, 0.01, 0.03, 0.1, 0.3) } 
 
-    kfold = KFold(5, shuffle=False) # don't shuffle keep consistent splits across algorithms
+    kfold = KFold(3, shuffle=False) # don't shuffle keep consistent splits across algorithms
     gs = GridSearchCV(clf, param_grid, cv=kfold.split(X_tr))
+    gs.fit(X_tr, y_seq)
+    return gs.best_estimator_, gs.best_params_
+
+
+def grid_search_rbfsampler_advseq(X_tr, y_seq, estimator, val_idx):
+    # extract the sequences to be used
+    X_tr = [X_tr[i] for i in val_idx]
+    y_seq = [y_seq[i] for i in val_idx]
+    param_grid = {'adv_seq__reg_constant' : ( 0.001, 0.01, 0.1, 1., 10.), 
+                    'rbfsampler__gamma': (.1, 1, 2, 10),
+                    'rbfsampler__n_components': (2000, 5000, 10000) } 
+    kfold = KFold(3, shuffle=False)
+    gs = GridSearchCV(estimator, param_grid, cv=kfold.split(X_tr))
     gs.fit(X_tr, y_seq)
     return gs.best_estimator_, gs.best_params_
 
@@ -94,8 +108,8 @@ def grid_search(clf, X_tr, y_seq, val_idx):
 def run(data_dir, cost_file, svm_data_dir):
     # load data, scale may not be needed
     X_tr, y_tr, X_ts, y_ts = load_hapt_data(data_dir)
-    X_tr, X_ts, _, _, transformer = preprocess(X_tr, X_ts)
-    print (transformer.__class__.__name__, transformer.get_params())
+    # X_tr, X_ts, _, _, transformer = preprocess(X_tr, X_ts)
+    # print (transformer.__class__.__name__, transformer.get_params())
     
     # load cost_matrix
     cost_matrix = np.loadtxt(cost_file, delimiter=',', dtype=float)
@@ -108,34 +122,37 @@ def run(data_dir, cost_file, svm_data_dir):
             reg_constant, learning_rate, batch_size = ast.literal_eval(f.read())
             print ("reg_constant:", reg_constant, "learning_rate:", learning_rate)
 
-    # extract some random indices of 20% for grid search
-    # val_idx = np.random.permutation(len(X_tr))
-    # val_idx = val_idx[:len(X_tr) // 5]
-    # val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
-
-    # save for svm
-    if svm_data_dir:
-        save_data_svmlight_format(os.path.join(svm_data_dir, 'train.dat'), X_tr, y_tr, start_feature=1)
-        save_data_svmlight_format(os.path.join(svm_data_dir, 'test.dat'), X_ts, y_ts, start_feature=1)
-        
     y_seq = [y-1 for y in y_tr] # for adv_seq, 0 indexed classes
     
     # now create classifier and train
     adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
             max_update=200000, verbose=3,
             reg_constant=reg_constant, learning_rate=learning_rate, batch_size=batch_size)
+    transformer = RBFSampler(random_state=42)
+    pipe = Pipeline([('rbfsampler', transformer), ('adv_seq', adv_seq)])
+    val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
+    _, best_params = grid_search_rbfsampler_advseq(X_tr, y_seq, pipe, val_idx)
+    print ("best parameter: " + str (best_params) )
+    transformer.set_params(gamma=best_params['rbfsampler__gamma'], n_components=best_params['rbfsampler__n_components'])
+    adv_seq.set_params(reg_constant=best_params['adv_seq__reg_constant'])
 
+    transformer.fit(np.concatenate(X_tr, axis=0))
+    X_tr = [transformer.transform(x) for x in X_tr]
+    X_ts = [transformer.transform(x) for x in X_ts]
+
+    # extract some random indices of 20% for grid search
+    # val_idx = np.random.permutation(len(X_tr))
+    # val_idx = val_idx[:len(X_tr) // 5]
+
+    # save for svm
+    if svm_data_dir:
+        save_data_svmlight_format(os.path.join(svm_data_dir, 'train.dat'), X_tr, y_tr, start_feature=1)
+        save_data_svmlight_format(os.path.join(svm_data_dir, 'test.dat'), X_ts, y_ts, start_feature=1)
+        
     # adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx)
     # print ("best parameter: " + str (best_param) )
 
     adv_seq.fit(X_tr, y_seq)
-
-    # save the transformer and classifier
-    with open ('model.pkl') as fid:
-        pickle.dump(adv_seq, fid)
-    save_params = {'transformer' : transformer}
-    with open( 'save_params.pkl', 'wb' ) as fid:
-        pickle.dump(save_params, fid) 
 
     # save for plotting
     np.savetxt('training_objectives.txt', np.column_stack((adv_seq.epoch_times, adv_seq.average_objective)), delimiter=',')
@@ -189,7 +206,10 @@ def run(data_dir, cost_file, svm_data_dir):
 
     print ('micro average loss (training):', total_cost / total_length)
 
-            
+    save_params = {'transformer' : transformer}
+    with open( 'save_params.pkl', 'wb' ) as fid:
+        pickle.dump(save_params, fid) 
+        
     
 
 if "__main__" == __name__:

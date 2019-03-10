@@ -325,9 +325,6 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             if update_count >= self.max_update: 
                 self.termination_condition = 'max update (%d) exceeded' % update_count
                 break
-            if self.verbose >= 2: 
-                print("epoch: %d process_time: %.2f real_time: %.2f" % (itr, time.process_time()-start_time, time.perf_counter()-perf_time) )
-                sys.stdout.flush()
                  
             idx = np.random.permutation(n_sample) 
             avg_grad = np.zeros(self.theta.shape)
@@ -389,11 +386,15 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             avg_objectives[itr] = batch_game_val / n_sample
             times[itr] = time.process_time() - start_time
             # print(game_val)
+
+            if self.verbose >= 2: 
+                print("epoch: %d process_time: %.2f real_time: %.2f average_obj: %.2f" % (itr+1, time.process_time()-start_time, time.perf_counter()-perf_time, avg_objectives[itr]) )
+                sys.stdout.flush()
             
             avg_grad = avg_grad / n_sample
             if itr > self.itr_to_chk and  abs(np.std(avg_objectives[itr-self.itr_to_chk:itr+1]) / np.mean(
                 avg_objectives[itr-self.itr_to_chk:itr+1])) <= self.game_val_cv:
-                self.termination_condition = 'optimization ended: average game value {} after {} iteration'.format(game_val, itr)
+                self.termination_condition = 'optimization ended: average game value {} after {} iteration'.format(avg_objectives[itr], itr)
                 print ('gamevalue termination...')
                 break
             if np.all(avg_grad <= self.grad_tol):
