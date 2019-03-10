@@ -18,6 +18,7 @@ from sklearn import metrics, preprocessing
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.kernel_approximation import RBFSampler
 from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator
 
 from AdversarialGame.classifiers import CostSensitiveSequenceTagger
 
@@ -42,6 +43,9 @@ def load_hapt_data(data_dir = '/Users/kaiser/Downloads/Dataset/Sequence/HAPT Dat
         
     X_tr = [X_tr[seq[1]:seq[2]+1] for seq in seq_tr] # 0 based and end-inclusive split info
     y_tr = [y_tr[seq[1]:seq[2]+1] for seq in seq_tr]
+    
+    # X_tr = [X_tr[seq[1]:seq[1]+5] for seq in seq_tr] # 0 based and end-inclusive split info
+    # y_tr = [y_tr[seq[1]:seq[1]+5] for seq in seq_tr]
 
     X_ts = [X_ts[seq[1]:seq[2]+1] for seq in seq_ts]
     y_ts = [y_ts[seq[1]:seq[2]+1] for seq in seq_ts]
@@ -91,13 +95,35 @@ def grid_search(clf, X_tr, y_seq, val_idx, param_grid):
     gs.fit(X_tr, y_seq)
     return gs.best_estimator_, gs.best_params_
 
+class NumpyConcatenator(BaseEstimator):
+    def __init__(self): pass
+    def fit(self, X, y=None): return self
+    def transform(self, X, y=None): return np.concatenate(X, axis=0)
+    def fit_transform(self, X, y=None): return self.transform(X, y)
+
+class SequenceWrapper(BaseEstimator):
+    def __init__(self, transformer, gamma=None, n_components=None, random_state=None): self.transformer = transformer
+    def set_params(self, **params): return self.transformer.set_params(**params)
+    def get_params(self, deep): 
+        params = self.transformer.get_params(deep) 
+        params['transformer'] = self.transformer
+        return params
+    def fit(self, X, y=None): 
+        self.transformer.fit(np.concatenate(X, axis=0))
+        return self
+    def transform(self, X, y=None): return [self.transformer.transform(x) for x in X]
+    def fit_transform(self, X, y=None): 
+        self.fit(X)
+        return self.transform(X)
+
+
 
 def grid_search_rbfsampler_advseq(X_tr, y_seq, estimator, val_idx):
     # extract the sequences to be used
     X_tr = [X_tr[i] for i in val_idx]
     y_seq = [y_seq[i] for i in val_idx]
-    param_grid = {'adv_seq__reg_constant' : ( 0.001, 0.1, 1.), 
-                    'rbfsampler__gamma': (10, 100, 1000),
+    param_grid = {'adv_seq__reg_constant' : ( 0.0001, 0.001, 0.1), 
+                    'rbfsampler__gamma': (100, 200, 500, 1000),
                     'rbfsampler__n_components': (5000, 10000) } 
     kfold = KFold(3, shuffle=False)
     gs = GridSearchCV(estimator, param_grid, cv=kfold.split(X_tr))
@@ -129,7 +155,7 @@ def run(data_dir, cost_file, svm_data_dir):
             max_update=200000, verbose=3,
             reg_constant=reg_constant, learning_rate=learning_rate, batch_size=batch_size)
     transformer = RBFSampler(random_state=42)
-    pipe = Pipeline([('rbfsampler', transformer), ('adv_seq', adv_seq)])
+    pipe = Pipeline([('rbfsampler', SequenceWrapper(transformer)), ('adv_seq', adv_seq)])
     val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
     _, best_params = grid_search_rbfsampler_advseq(X_tr, y_seq, pipe, val_idx)
     print ("best parameter: " + str (best_params) )
