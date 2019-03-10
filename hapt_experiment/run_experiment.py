@@ -87,8 +87,8 @@ def grid_search(clf, X_tr, y_seq, val_idx, param_grid):
     X_tr = [X_tr[i] for i in val_idx]
     y_seq = [y_seq[i] for i in val_idx]
 
-    # param_grid = {'reg_constant' : (0.0001, 0.001, 0.01, 0.1, 1., 2., 10.), 
-    #                 'learning_rate': (0.003, 0.01, 0.03, 0.1, 0.3) } 
+    param_grid = {'reg_constant' : (0.0001, 0.001, 0.01)} #, 
+                    # 'learning_rate': (0.003, 0.01, 0.03, 0.1, 0.3) } 
 
     kfold = KFold(3, shuffle=False) # don't shuffle keep consistent splits across algorithms
     gs = GridSearchCV(clf, param_grid, cv=kfold.split(X_tr))
@@ -134,8 +134,8 @@ def grid_search_rbfsampler_advseq(X_tr, y_seq, estimator, val_idx):
 def run(data_dir, cost_file, svm_data_dir):
     # load data, scale may not be needed
     X_tr, y_tr, X_ts, y_ts = load_hapt_data(data_dir)
-    # X_tr, X_ts, _, _, transformer = preprocess(X_tr, X_ts)
-    # print (transformer.__class__.__name__, transformer.get_params())
+    X_tr, X_ts, _, _, transformer = preprocess(X_tr, X_ts)
+    print (transformer.__class__.__name__, transformer.get_params())
     
     # load cost_matrix
     cost_matrix = np.loadtxt(cost_file, delimiter=',', dtype=float)
@@ -154,17 +154,17 @@ def run(data_dir, cost_file, svm_data_dir):
     adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
             max_update=200000, verbose=3,
             reg_constant=reg_constant, learning_rate=learning_rate, batch_size=batch_size)
-    transformer = RBFSampler(random_state=42)
-    pipe = Pipeline([('rbfsampler', SequenceWrapper(transformer)), ('adv_seq', adv_seq)])
-    val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
-    _, best_params = grid_search_rbfsampler_advseq(X_tr, y_seq, pipe, val_idx)
-    print ("best parameter: " + str (best_params) )
-    transformer.set_params(gamma=best_params['rbfsampler__gamma'], n_components=best_params['rbfsampler__n_components'])
-    adv_seq.set_params(reg_constant=best_params['adv_seq__reg_constant'])
 
-    transformer.fit(np.concatenate(X_tr, axis=0))
-    X_tr = [transformer.transform(x) for x in X_tr]
-    X_ts = [transformer.transform(x) for x in X_ts]
+    # transformer = RBFSampler(random_state=42)
+    # pipe = Pipeline([('rbfsampler', SequenceWrapper(transformer)), ('adv_seq', adv_seq)])
+    # val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
+    # _, best_params = grid_search_rbfsampler_advseq(X_tr, y_seq, pipe, val_idx)
+    # print ("best parameter: " + str (best_params) )
+    # transformer.set_params(gamma=best_params['rbfsampler__gamma'], n_components=best_params['rbfsampler__n_components'])
+    # adv_seq.set_params(reg_constant=best_params['adv_seq__reg_constant'])
+    # transformer.fit(np.concatenate(X_tr, axis=0))
+    # X_tr = [transformer.transform(x) for x in X_tr]
+    # X_ts = [transformer.transform(x) for x in X_ts]
 
     # extract some random indices of 20% for grid search
     # val_idx = np.random.permutation(len(X_tr))
