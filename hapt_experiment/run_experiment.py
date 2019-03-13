@@ -65,7 +65,7 @@ def preprocess(X_tr, X_ts, poly_degree=1):
     default is 1, since 561 fetures is already too many
     """
     rbf_path = os.path.join(os.getcwd(), 'RBFSampler.txt')
-    if os.path.exists( rbf_path ):
+    if False and os.path.exists( rbf_path ): # disable RBFSample features again. Didn't help
         with open( rbf_path, 'rt' ) as f:
             kwargs = ast.literal_eval(f.read())
             transformer = RBFSampler(**kwargs)
@@ -87,10 +87,7 @@ def grid_search(clf, X_tr, y_seq, val_idx, param_grid):
     X_tr = [X_tr[i] for i in val_idx]
     y_seq = [y_seq[i] for i in val_idx]
 
-    param_grid = {'reg_constant' : (0.0001, 0.001, 0.01)} #, 
-                    # 'learning_rate': (0.003, 0.01, 0.03, 0.1, 0.3) } 
-
-    kfold = KFold(3, shuffle=False) # don't shuffle keep consistent splits across algorithms
+    kfold = KFold(5, shuffle=False) # don't shuffle keep consistent splits across algorithms
     gs = GridSearchCV(clf, param_grid, cv=kfold.split(X_tr))
     gs.fit(X_tr, y_seq)
     return gs.best_estimator_, gs.best_params_
@@ -126,7 +123,7 @@ def grid_search_rbfsampler_advseq(X_tr, y_seq, estimator, val_idx):
                     'rbfsampler__gamma': (100, 200, 500, 1000),
                     'rbfsampler__n_components': (5000, 10000) } 
     kfold = KFold(3, shuffle=False)
-    gs = GridSearchCV(estimator, param_grid, cv=kfold.split(X_tr))
+    gs = GridSearchCV(estimator, param_grid, cv=kfold.split(X_tr), verbose=10)
     gs.fit(X_tr, y_seq)
     return gs.best_estimator_, gs.best_params_
 
@@ -140,24 +137,25 @@ def run(data_dir, cost_file, svm_data_dir):
     # load cost_matrix
     cost_matrix = np.loadtxt(cost_file, delimiter=',', dtype=float)
 
-    reg_constant, learning_rate, batch_size = 0.1, 0., 1 # 0 lr for ada_delta update
+    # 0 lr for ada_delta update, + batch_size > sample_size = lbfgs
+    reg_constant, learning_rate, batch_size = 0.1, 0., 1000 
     # if current dir contains learning parameters, read them
     reg_lr_path = os.path.join(os.getcwd(), 'reg_lr.txt')
     if os.path.exists( reg_lr_path ):
         with open( reg_lr_path, 'rt' ) as f:
             reg_constant, learning_rate, batch_size = ast.literal_eval(f.read())
-            print ("reg_constant:", reg_constant, "learning_rate:", learning_rate)
+            print ("reg_constant:", reg_constant, "learning_rate:", learning_rate, "batch_size", batch_size)
 
     y_seq = [y-1 for y in y_tr] # for adv_seq, 0 indexed classes
     
     # now create classifier and train
-    adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=1000, solver='gurobi',
-            max_update=200000, verbose=3,
+    adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=500, solver='gurobi',
+            max_update=200000, verbose=0,
             reg_constant=reg_constant, learning_rate=learning_rate, batch_size=batch_size)
 
     # transformer = RBFSampler(random_state=42)
     # pipe = Pipeline([('rbfsampler', SequenceWrapper(transformer)), ('adv_seq', adv_seq)])
-    # val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
+    val_idx = np.loadtxt(os.path.join(data_dir, 'Train/validation_set.txt'), delimiter=',').astype(int)
     # _, best_params = grid_search_rbfsampler_advseq(X_tr, y_seq, pipe, val_idx)
     # print ("best parameter: " + str (best_params) )
     # transformer.set_params(gamma=best_params['rbfsampler__gamma'], n_components=best_params['rbfsampler__n_components'])
@@ -175,9 +173,14 @@ def run(data_dir, cost_file, svm_data_dir):
         save_data_svmlight_format(os.path.join(svm_data_dir, 'train.dat'), X_tr, y_tr, start_feature=1)
         save_data_svmlight_format(os.path.join(svm_data_dir, 'test.dat'), X_ts, y_ts, start_feature=1)
         
-    # adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx)
-    # print ("best parameter: " + str (best_param) )
-
+    param_grid = {'reg_constant' : tuple(10**p for p in range(-5, 3))} 
+    adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx, param_grid)
+    print ("best parameter: " + str (best_param) )
+    param_grid = {'reg_constant' : tuple(best_param['reg_constant'] * 2 ** p for p in range(-3, 4))} 
+    adv_seq, best_param = grid_search(adv_seq, X_tr, y_seq, val_idx, param_grid)
+    print ("best parameter: " + str (best_param) )
+    
+    adv_seq.set_params(verbose=3)
     adv_seq.fit(X_tr, y_seq)
 
     # save for plotting

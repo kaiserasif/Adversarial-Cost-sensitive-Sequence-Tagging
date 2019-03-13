@@ -510,8 +510,13 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         Scikit-learn expects accuracy measure
         Therefore return -expected_cost
         """
-        Y_pred = self.predict(X)
-        return -self.cost_matrix[np.concatenate(Y_pred), np.concatenate(Y)].mean()  
+        # Y_pred = self.predict(X)
+        # return -self.cost_matrix[np.concatenate(Y_pred), np.concatenate(Y)].mean()  
+        p_hats = np.concatenate (self.predict_proba(X), axis=0)
+        phatC = np.dot(p_hats, self.cost_matrix.T)
+        Y = np.concatenate(Y)
+        expected_loss = phatC[np.arange(len(Y)), Y].mean()
+        return -expected_loss
 
 
     def batch_optimization(self, X, Y):
@@ -567,7 +572,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         # now flatten theta and pass
         theta = np.concatenate((self.theta, self.transition_theta), axis=0).flatten()
 
-        res = minimize(fun, theta, jac=der, tol=1e-8, callback=callback_fun, options={'maxiter': self.max_itr})
+        res = minimize(fun, theta, method='L-BFGS-B', jac=der, tol=1e-8, callback=callback_fun, options={'maxiter': self.max_itr})
         # print (check_grad(fun, der, res.x))
 
         ####
