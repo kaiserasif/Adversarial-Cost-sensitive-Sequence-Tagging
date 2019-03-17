@@ -71,7 +71,7 @@ class SingleOracle:
             p_check joints : numpy array of size T x Y x Y
             p_check marginals : numpy array of size T x Y 
         """
-
+        tolerance = 1e-8
         T = len(sequence)
 
         # initialize actions with all same class for full sequence for all classes
@@ -106,6 +106,7 @@ class SingleOracle:
             # at the corners, i.e. equal contraints, 
             # phat can take any of the possible determinitically,
             # which throws off the pcheck-best-response
+            # BUT never occurs in debugging!
             vars_ = self._adjust_phat(val, vars_, A_ub_list, b_ub_list,
                         sequence, pcheck_actions, theta, transition_theta)
             
@@ -113,9 +114,9 @@ class SingleOracle:
             min_gamevalue = val # v is the game value / objective value, since all other objective coeff are 0
 
 
-            if min_gamevalue == previous_min_gamevalue:
-                reached_stop = True
-                break
+            # if min_gamevalue == previous_min_gamevalue:
+            #     reached_stop = True
+            #     break
             previous_min_gamevalue = min_gamevalue
 
             # call best response function
@@ -123,13 +124,17 @@ class SingleOracle:
                 phat, theta, transition_theta)
             
             # if value is less than the p-hat solution, break
-            if new_action_val <= min_gamevalue: break # adversary didn't find a choice to maximize cost
+            # if new_action_val <= min_gamevalue: break # adversary didn't find a choice to maximize cost
+            if abs(new_action_val - min_gamevalue) <= tolerance: break
 
             # add best response to the actions, repeat
             if new_action not in pcheck_actions :
                 pcheck_actions.append(new_action)
                 self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list,
                     new_action, theta, transition_theta)
+            else: break
+            print (min_gamevalue, new_action_val, len(pcheck_actions), ' '*10, end='\r', flush=True)
+        print(min_gamevalue, T, len(pcheck_actions), ' '*10, end='\n', flush=True)
         
         # after breaking the loop, call for pcheck solution
         max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions, theta, transition_theta)

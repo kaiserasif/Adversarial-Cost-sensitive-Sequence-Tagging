@@ -407,7 +407,8 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
         print ('game values: {}'.format(avg_objectives[max(0,itr-10):itr]))
         self.average_objective = avg_objectives[:itr] # per_update_objective[:count] # avg_objectives[:itr]
         self.epoch_times = times[:itr]
-        print (self.termination_condition)
+        print (self.termination_condition, flush=True)
+        
 
 
     def predict (self, X):

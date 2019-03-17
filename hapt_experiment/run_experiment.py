@@ -88,7 +88,7 @@ def grid_search(clf, X_tr, y_seq, val_idx, param_grid):
     y_seq = [y_seq[i] for i in val_idx]
 
     kfold = KFold(5, shuffle=False) # don't shuffle keep consistent splits across algorithms
-    gs = GridSearchCV(clf, param_grid, cv=kfold.split(X_tr))
+    gs = GridSearchCV(clf, param_grid, cv=kfold.split(X_tr), verbose=10)
     gs.fit(X_tr, y_seq)
     return gs.best_estimator_, gs.best_params_
 
