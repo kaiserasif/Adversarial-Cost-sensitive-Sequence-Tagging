@@ -387,7 +387,7 @@ class CostSensitiveSequenceTagger(BaseEstimator, ClassifierMixin):
             times[itr] = time.process_time() - start_time
             # print(game_val)
 
-            if self.verbose >= 2: 
+            if self.verbose >= 1: 
                 print("epoch: %d process_time: %.2f real_time: %.2f average_obj: %.2f" % (itr+1, time.process_time()-start_time, time.perf_counter()-perf_time, avg_objectives[itr]) )
                 sys.stdout.flush()
             

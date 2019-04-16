@@ -125,7 +125,7 @@ class SingleOracle:
             
             # if value is less than the p-hat solution, break
             # if new_action_val <= min_gamevalue: break # adversary didn't find a choice to maximize cost
-            if abs(new_action_val - min_gamevalue) <= tolerance: break
+            if new_action_val <= min_gamevalue + tolerance: break
 
             # add best response to the actions, repeat
             if new_action not in pcheck_actions :
@@ -134,7 +134,7 @@ class SingleOracle:
                     new_action, theta, transition_theta)
             else: break
             print (min_gamevalue, new_action_val, len(pcheck_actions), ' '*10, end='\r', flush=True)
-        print(min_gamevalue, T, len(pcheck_actions), ' '*10, end='\n', flush=True)
+        print(min_gamevalue, T, len(pcheck_actions), ' '*20, end='\n', flush=True)
         
         # after breaking the loop, call for pcheck solution
         max_gamevalue, pcheck_dist = self._pcheck_singleoracle(sequence,  pcheck_actions, theta, transition_theta)

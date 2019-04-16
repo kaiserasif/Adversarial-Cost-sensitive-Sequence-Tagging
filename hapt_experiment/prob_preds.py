@@ -40,8 +40,8 @@ def main():
     tmp = p_hat.argmax(axis=1) + 1      
     phatC = np.dot(p_hat, cost_matrix.T)
 
-    print ('cost_sensitive: (yhatCy)', cost_matrix[np.concatenate(tmp)-1, np.concatenate(y_ts)-1].sum())    
-    print ('cost_sensitive: (phatCy)', sum( [pc[y-1] for pc,y in zip(phatC, y_ts)] ))
+    print ('cost_sensitive: (yhatCy)', cost_matrix[tmp-1, np.concatenate(y_ts)-1].sum())    
+    print ('cost_sensitive: (phatCy)', sum( [pc[y-1] for pc,y in zip(phatC, np.concatenate(y_ts))] ))
 
     np.savetxt(os.path.join(out_dir, 'repredict_p_hat.txt'), p_hat, delimiter=',')
 
