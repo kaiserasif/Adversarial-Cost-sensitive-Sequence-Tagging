@@ -6,8 +6,8 @@ import os, sys
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.kernel_approximation import RBFSampler
 
+sys.path.append(os.path.join(sys.path[0], os.pardir))
 from AdversarialGame.classifiers import CostSensitiveSequenceTagger
-
 from hapt_experiment.run_experiment import load_hapt_data, preprocess
 
 

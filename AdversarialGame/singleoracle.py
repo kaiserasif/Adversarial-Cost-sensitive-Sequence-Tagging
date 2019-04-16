@@ -29,7 +29,7 @@ class SingleOracle:
     probably that's a sanity check, skipped here
     """
 
-    def __init__(self, n_class, cost_matrix, max_itr = 10000):
+    def __init__(self, n_class, cost_matrix, max_itr = 500):
         """
         Initialize SingleOracle with the references to the 
         Theta parameters learned in the optimization.
@@ -133,7 +133,7 @@ class SingleOracle:
                 self._add_singleoracle_constraint_for_pcheck_action(sequence, A_ub_list, b_ub_list,
                     new_action, theta, transition_theta)
             else: break
-            print (min_gamevalue, new_action_val, len(pcheck_actions), ' '*10, end='\r', flush=True)
+            print (min_gamevalue, new_action_val, len(pcheck_actions), ' '*10, end='\n', flush=True)
         print(min_gamevalue, T, len(pcheck_actions), ' '*20, end='\n', flush=True)
         
         # after breaking the loop, call for pcheck solution
