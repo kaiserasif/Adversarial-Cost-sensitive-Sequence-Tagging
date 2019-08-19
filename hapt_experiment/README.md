@@ -3,7 +3,7 @@ Hard-code validation indices file in **validation_set.txt** the training data di
 Python 2 is requierd for SVM.
 
 ## To run Adversarial Sequence Tagging:
-Run in python 3, with cvxopt installed. 
+Run in Python 3, with cvxopt installed. 
 
 `python hapt_experiment/run_experiment.py <data_dir> <cost_file> <svm_data_save_dir>`
 
