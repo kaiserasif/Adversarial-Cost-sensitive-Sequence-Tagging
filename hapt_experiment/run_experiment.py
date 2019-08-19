@@ -11,6 +11,8 @@ run using:
 """
 
 import os, sys, ast
+sys.path.append(os.path.join(sys.path[0], os.pardir))
+
 import pickle
 
 import numpy as np
@@ -25,7 +27,7 @@ from AdversarialGame.classifiers import CostSensitiveSequenceTagger
 from analysis.utils import save_data_svmlight_format
 
 
-def load_hapt_data(data_dir = '/Users/kaiser/Downloads/Dataset/Sequence/HAPT Data Set/'):
+def load_hapt_data(data_dir = '../data/HAPT Data Set/'):
     train_dir = os.path.join(data_dir, 'Train')
     test_dir = os.path.join(data_dir, 'Test')
 
@@ -149,7 +151,7 @@ def run(data_dir, cost_file, svm_data_dir):
     y_seq = [y-1 for y in y_tr] # for adv_seq, 0 indexed classes
     
     # now create classifier and train
-    adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=500, solver='gurobi',
+    adv_seq = CostSensitiveSequenceTagger(cost_matrix=cost_matrix, max_itr=500, solver='cvxopt',
             max_update=200000, verbose=0,
             reg_constant=reg_constant, learning_rate=learning_rate, batch_size=batch_size)
 

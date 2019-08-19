@@ -1,0 +1,277 @@
+/home/kaiser/welding/hapt_experiment/svm_experiment
+best C: 1.0
+[[0.   1.17 1.2  1.68 1.67 1.7  1.45 1.65 1.58 1.64 1.59 1.63]
+ [1.17 0.   1.3  1.62 1.6  1.64 1.28 1.47 1.43 1.5  1.46 1.5 ]
+ [1.2  1.3  0.   1.88 1.87 1.89 1.59 1.76 1.66 1.72 1.65 1.69]
+ [1.68 1.62 1.88 0.   1.   1.11 1.6  1.72 1.73 1.74 1.82 1.8 ]
+ [1.67 1.6  1.87 1.   0.   1.16 1.58 1.71 1.73 1.75 1.82 1.8 ]
+ [1.7  1.64 1.89 1.11 1.16 0.   1.63 1.74 1.74 1.72 1.84 1.78]
+ [1.45 1.28 1.59 1.6  1.58 1.63 0.   1.27 1.26 1.4  1.32 1.42]
+ [1.65 1.47 1.76 1.72 1.71 1.74 1.27 0.   1.37 1.33 1.44 1.35]
+ [1.58 1.43 1.66 1.73 1.73 1.74 1.26 1.37 0.   1.38 1.11 1.39]
+ [1.64 1.5  1.72 1.74 1.75 1.72 1.4  1.33 1.38 0.   1.46 1.05]
+ [1.59 1.46 1.65 1.82 1.82 1.84 1.32 1.44 1.11 1.46 0.   1.44]
+ [1.63 1.5  1.69 1.8  1.8  1.78 1.42 1.35 1.39 1.05 1.44 0.  ]]
+Reading training examples...63 examples read in multiclass_seq.py
+done
+init_model
+Setting current working precision to 50.
+Iter 1 (63 active): .....+.......+...................+............+......+..+......*(NumConst=57, SV=6, CEps=363.4400, QPEps=5.8888)
+Iter 2 (57 active): .........................................................*(NumConst=114, SV=10, CEps=504.4748, QPEps=0.0021)
+Iter 3 (57 active): .........................................................*(NumConst=171, SV=17, CEps=934.4581, QPEps=15.0891)
+Iter 4 (57 active): .........................................................*(NumConst=228, SV=29, CEps=534.2446, QPEps=23.2895)
+Iter 5 (57 active): .........................................................*(NumConst=285, SV=34, CEps=464.8097, QPEps=15.5618)
+Iter 6 (57 active): .........................................................*(NumConst=342, SV=44, CEps=293.1842, QPEps=15.4125)
+Iter 7 (57 active): .........+......+..+...................+.................*(NumConst=395, SV=49, CEps=264.1697, QPEps=24.4544)
+Iter 8 (53 active): .....................................................*(NumConst=448, SV=53, CEps=467.2318, QPEps=19.4857)
+Iter 9 (53 active): ..+..................................................*(NumConst=500, SV=52, CEps=263.3689, QPEps=17.3822)
+Iter 10 (52 active): ..................+..+.......+..........+.+.....+..+*(NumConst=545, SV=75, CEps=224.1238, QPEps=23.7225)
+Iter 11 (45 active): .....................+.....+.........+.......*(NumConst=587, SV=73, CEps=195.0603, QPEps=19.5149)
+Iter 12 (42 active): ..........+.....+.........++.......+...+..*(NumConst=623, SV=84, CEps=160.1135, QPEps=18.3408)
+Iter 13 (36 active): .......+.......+....+.........+.....*(NumConst=655, SV=99, CEps=158.1398, QPEps=24.3032)
+Iter 14 (32 active): ++...++....+.....+..............*(NumConst=681, SV=99, CEps=116.3483, QPEps=23.7636)
+Iter 15 (26 active): ++++.+++.+.+++++++.++++++.*(NumConst=686, SV=98, CEps=71.6642, QPEps=24.9865)
+Iter 16 (5 active): +.+..*(NumConst=689, SV=100, CEps=102.4523, QPEps=22.9923)
+Iter 17 (3 active): ..+*(NumConst=691, SV=102, CEps=95.4060, QPEps=24.6414)
+Iter 18 (2 active): +.*(NumConst=692, SV=100, CEps=79.2874, QPEps=22.9150)
+Iter 19 (1 active): +(NumConst=692, SV=100, CEps=42.1244, QPEps=22.9150)
+Iter 20 (63 active): ++++++.++++++++.++++++++++++++++++++++++++++++++++++++.++++++++*(NumConst=695, SV=102, CEps=51.1197, QPEps=24.8491)
+Iter 21 (3 active): +++(NumConst=695, SV=102, CEps=32.4486, QPEps=24.8491)
+Iter 22 (63 active): ++++++++++++++++++++++++++++++++++++++++++++.++++++++++++++++++*(NumConst=696, SV=103, CEps=56.1286, QPEps=24.5683)
+Iter 23 (1 active): +(NumConst=696, SV=103, CEps=33.8169, QPEps=24.5683)
+Iter 24 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=696, SV=103, CEps=45.5864, QPEps=24.5683)
+Setting current working precision to 25.
+Iter 25 (63 active): ..+..++...+..+.++++.+++.+......+.+..+++...+..++..+.++++.+..++++*(NumConst=728, SV=115, CEps=45.5864, QPEps=12.4013)
+Iter 26 (32 active): .................+...+.....+...+*(NumConst=756, SV=121, CEps=67.2561, QPEps=12.0391)
+Iter 27 (28 active): .........+.+..+.+....+...+..*(NumConst=778, SV=131, CEps=49.1315, QPEps=10.1617)
+Iter 28 (22 active): ................++....*(NumConst=798, SV=130, CEps=57.1187, QPEps=11.6890)
+Iter 29 (20 active): ++..++++..++++...+++*(NumConst=805, SV=133, CEps=39.1756, QPEps=11.4778)
+Iter 30 (7 active): ++++++.*(NumConst=806, SV=135, CEps=39.0158, QPEps=10.7548)
+Iter 31 (1 active): +(NumConst=806, SV=135, CEps=21.6782, QPEps=10.7548)
+Iter 32 (63 active): ++++++++++++++++++++..+++++++++++++++++++++++++++++++++++++++++*(NumConst=808, SV=136, CEps=33.5336, QPEps=12.1522)
+Iter 33 (2 active): .+*(NumConst=809, SV=139, CEps=28.7594, QPEps=12.4424)
+Iter 34 (1 active): .*(NumConst=810, SV=140, CEps=25.8643, QPEps=12.2406)
+Iter 35 (1 active): +(NumConst=810, SV=140, CEps=9.3066, QPEps=12.2406)
+Iter 36 (63 active): ++++++++++++++++++++++++++.+++++++++++++++++.++++++++++++++++++*(NumConst=812, SV=137, CEps=31.5358, QPEps=11.3696)
+Iter 37 (2 active): +.*(NumConst=813, SV=137, CEps=32.8579, QPEps=11.9497)
+Iter 38 (1 active): +(NumConst=813, SV=137, CEps=22.7339, QPEps=11.9497)
+Iter 39 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=813, SV=137, CEps=24.4108, QPEps=11.9497)
+Setting current working precision to 12.5.
+Iter 40 (63 active): ..+..+.......+...++.++....+..+...+..+++...+...+.++.+++..+.++..+*(NumConst=852, SV=140, CEps=24.4108, QPEps=5.7823)
+Iter 41 (39 active): ........+........................+.....*(NumConst=889, SV=154, CEps=48.9363, QPEps=5.7065)
+Iter 42 (37 active): ...+++.++.+.+.+.+....+.++++.+..+.+...*(NumConst=909, SV=149, CEps=27.4975, QPEps=6.1857)
+Iter 43 (20 active): ++....+.++..++.++++.*(NumConst=918, SV=144, CEps=25.2762, QPEps=6.2069)
+Iter 44 (9 active): +++++++.+*(NumConst=919, SV=145, CEps=16.2809, QPEps=5.7089)
+Iter 45 (1 active): .*(NumConst=920, SV=142, CEps=13.3783, QPEps=6.0974)
+Iter 46 (1 active): +(NumConst=920, SV=142, CEps=8.0781, QPEps=6.0974)
+Iter 47 (63 active): ++++++.+++++++++++++.++++++++++++++++++++++++++++++++++++++++++*(NumConst=922, SV=145, CEps=13.9368, QPEps=6.0786)
+Iter 48 (2 active): ++(NumConst=922, SV=145, CEps=6.6005, QPEps=6.0786)
+Iter 49 (63 active): ++++++++++++++++.++++++++++++++++++.+.++.+++.++++++++++.+++++++*(NumConst=928, SV=146, CEps=14.3856, QPEps=5.8297)
+Iter 50 (6 active): ++++.+*(NumConst=929, SV=146, CEps=13.2313, QPEps=6.1983)
+Iter 51 (1 active): +(NumConst=929, SV=146, CEps=7.4037, QPEps=6.1983)
+Iter 52 (63 active): ++++++++++++++++++++++++++++++++++++++++++++++++..++++++++.++++*(NumConst=932, SV=150, CEps=13.9008, QPEps=5.7975)
+Iter 53 (3 active): +++(NumConst=932, SV=150, CEps=3.0972, QPEps=5.7975)
+Iter 54 (63 active): ++++++++++++++++++++++++++++++++.+.++++++++++++++++++++++++++++*(NumConst=934, SV=144, CEps=15.2044, QPEps=5.4150)
+Iter 55 (2 active): ++(NumConst=934, SV=144, CEps=7.1324, QPEps=5.4150)
+Iter 56 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=934, SV=144, CEps=10.6374, QPEps=5.4150)
+Setting current working precision to 6.25.
+Iter 57 (63 active): .++..........+..+++...+.....+.+.+..++.+++.+..++.++.+.+..+++++.+*(NumConst=969, SV=160, CEps=10.6374, QPEps=2.8999)
+Iter 58 (35 active): ...+....+........+...+.+.+.........*(NumConst=998, SV=163, CEps=28.3215, QPEps=3.0394)
+Iter 59 (29 active): ..........+.++++..+.....++++.*(NumConst=1017, SV=176, CEps=18.1642, QPEps=3.0400)
+Iter 60 (19 active): +.++++++++..++++.+.*(NumConst=1022, SV=170, CEps=11.2326, QPEps=3.0907)
+Iter 61 (5 active): +++.+*(NumConst=1023, SV=170, CEps=6.8240, QPEps=2.9926)
+Iter 62 (1 active): +(NumConst=1023, SV=170, CEps=3.5191, QPEps=2.9926)
+Iter 63 (63 active): ++++++++++++.+++++++.+++++++.+++.+..+++..++++.++++++++.++.+++++*(NumConst=1034, SV=170, CEps=10.3864, QPEps=2.8325)
+Iter 64 (11 active): ++.++.+.+++*(NumConst=1037, SV=168, CEps=7.5753, QPEps=3.0311)
+Iter 65 (3 active): +++(NumConst=1037, SV=168, CEps=4.3375, QPEps=3.0311)
+Iter 66 (63 active): ++++++++++++.++++++.+++++++++.+++++++++++++.++++.++++++++++++.+*(NumConst=1043, SV=176, CEps=7.9646, QPEps=2.6615)
+Iter 67 (6 active): +++++.*(NumConst=1000, SV=169, CEps=6.3606, QPEps=2.7432)
+Iter 68 (1 active): +(NumConst=953, SV=169, CEps=3.3528, QPEps=2.7432)
+Iter 69 (63 active): +++.++++++++++.+++++++++++++++.++++++++++++++++++++++++++++++++*(NumConst=956, SV=169, CEps=6.8609, QPEps=3.0387)
+Iter 70 (3 active): +++(NumConst=911, SV=169, CEps=4.1577, QPEps=3.0387)
+Iter 71 (63 active): ++++++++++++++++++++++++.++++++++++++++++++++++++++++++++++++++*(NumConst=912, SV=164, CEps=8.0127, QPEps=2.9026)
+Iter 72 (1 active): +(NumConst=865, SV=164, CEps=3.1753, QPEps=2.9026)
+Iter 73 (63 active): ++++++++++++++++.++++++++++++++++++++++++++++++++++++++++++++++*(NumConst=866, SV=168, CEps=6.7284, QPEps=2.9128)
+Iter 74 (1 active): +(NumConst=813, SV=168, CEps=0.9167, QPEps=2.9128)
+Iter 75 (63 active): ++++++++++++++++++++++++++++++++++++++++++++.++++++++++++++++++*(NumConst=814, SV=166, CEps=6.6975, QPEps=3.0182)
+Iter 76 (1 active): +(NumConst=767, SV=166, CEps=5.2253, QPEps=3.0182)
+Iter 77 (63 active): +++++++++++++++++++++.+++++++++++++++++++++++++++++++++++++++++*(NumConst=768, SV=166, CEps=7.0377, QPEps=3.0972)
+Iter 78 (1 active): +(NumConst=726, SV=166, CEps=1.6208, QPEps=3.0972)
+Iter 79 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=726, SV=166, CEps=6.1742, QPEps=3.0972)
+Setting current working precision to 3.125.
+Iter 80 (63 active): ..++.+.......+..+.+..+...+...++..++++++..+++..++.++++.+.+..++.+*(NumConst=759, SV=176, CEps=6.1742, QPEps=1.5459)
+Iter 81 (33 active): ..+...++..+.+....+.....+..++++.+.*(NumConst=733, SV=177, CEps=10.3475, QPEps=1.4714)
+Iter 82 (21 active): ++.+++.++.+++.++.+...*(NumConst=695, SV=176, CEps=6.4021, QPEps=1.5218)
+Iter 83 (8 active): +++++.++*(NumConst=663, SV=173, CEps=4.2672, QPEps=1.5600)
+Iter 84 (1 active): +(NumConst=624, SV=173, CEps=2.3589, QPEps=1.5600)
+Iter 85 (63 active): +++.++++.++++++++++++.++.+++++.+.+++.+.+++++++++++++.+.++++++++*(NumConst=634, SV=180, CEps=5.5953, QPEps=1.5624)
+Iter 86 (10 active): ++++++++++(NumConst=609, SV=180, CEps=2.8958, QPEps=1.5624)
+Iter 87 (63 active): +++++++++++++++++++++++.++++++++++.++++.+.++..++++++++++++++.++*(NumConst=616, SV=183, CEps=5.1986, QPEps=1.5420)
+Iter 88 (7 active): +++++++(NumConst=595, SV=183, CEps=2.7662, QPEps=1.5420)
+Iter 89 (63 active): +++++++++++++++++++++++++.+.+++++++++++++++++++++++++++++++++++*(NumConst=597, SV=181, CEps=3.4608, QPEps=1.5396)
+Iter 90 (2 active): ++(NumConst=572, SV=181, CEps=2.0260, QPEps=1.5396)
+Iter 91 (63 active): ++++++++++++++++++++++++++++++++++.++++++++++++++++++++++++++++*(NumConst=573, SV=184, CEps=3.1643, QPEps=1.5335)
+Iter 92 (1 active): +(NumConst=561, SV=184, CEps=2.5523, QPEps=1.5335)
+Iter 93 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=561, SV=184, CEps=2.8372, QPEps=1.5335)
+Setting current working precision to 1.5625.
+Iter 94 (63 active): ..+........+.++.+....++++++++.......+....++..++.+..+.+....+++.+*(NumConst=599, SV=199, CEps=2.8372, QPEps=0.7129)
+Iter 95 (38 active): ...++....+...+......+.++++.+..+++..+..*(NumConst=622, SV=203, CEps=4.5997, QPEps=0.7468)
+Iter 96 (24 active): ...+.++..++.++++.+.+.+..*(NumConst=632, SV=206, CEps=2.8392, QPEps=0.7804)
+Iter 97 (12 active): ++..++++.+..*(NumConst=635, SV=212, CEps=2.4385, QPEps=0.7569)
+Iter 98 (5 active): ++.++*(NumConst=633, SV=211, CEps=2.4559, QPEps=0.7724)
+Iter 99 (1 active): +(NumConst=633, SV=211, CEps=1.5250, QPEps=0.7724)
+Iter 100 (63 active): +++++++++++..+.++++++.+++++.++++++++.++++.+++.+.+++++++++++++++*(NumConst=642, SV=214, CEps=2.6128, QPEps=0.7674)
+Iter 101 (9 active): ++++.++++*(NumConst=632, SV=211, CEps=3.5856, QPEps=0.7282)
+Iter 102 (1 active): +(NumConst=606, SV=211, CEps=1.4659, QPEps=0.7282)
+Iter 103 (63 active): +++++++++.+++++++++++.++++++++++.+++++++.+++.++++++++++++++++++*(NumConst=611, SV=215, CEps=2.0374, QPEps=0.7683)
+Iter 104 (5 active): ++++.*(NumConst=598, SV=208, CEps=1.6842, QPEps=0.7531)
+Iter 105 (1 active): +(NumConst=576, SV=208, CEps=1.3033, QPEps=0.7531)
+Iter 106 (63 active): +++++++++++++++++++++++++.+++++++++++++++++++++++++++++++++++++*(NumConst=577, SV=212, CEps=1.6729, QPEps=0.7663)
+Iter 107 (1 active): +(NumConst=572, SV=212, CEps=0.1140, QPEps=0.7663)
+Iter 108 (63 active): .+++++++++++++++.+++++++++++++++++++++++++++++++++++++++++.++++*(NumConst=575, SV=209, CEps=2.2870, QPEps=0.7711)
+Iter 109 (3 active): +++(NumConst=573, SV=209, CEps=0.3873, QPEps=0.7711)
+Iter 110 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=573, SV=209, CEps=1.4903, QPEps=0.7711)
+Setting current working precision to 0.78125.
+Iter 111 (63 active): +.+..+...+......+........+...+.+.+..++.++.+...++..++.++.++++..+*(NumConst=611, SV=233, CEps=1.4903, QPEps=0.3886)
+Iter 112 (38 active): +........+..+...+...........+...++..+.*(NumConst=641, SV=236, CEps=2.1869, QPEps=0.3883)
+Iter 113 (30 active): ++...++.+++..+.++++...+++.++++*(NumConst=650, SV=237, CEps=1.5068, QPEps=0.3883)
+Iter 114 (11 active): ++++++++++.*(NumConst=651, SV=238, CEps=1.2509, QPEps=0.3886)
+Iter 115 (1 active): .*(NumConst=648, SV=235, CEps=0.8144, QPEps=0.3889)
+Iter 116 (1 active): .*(NumConst=648, SV=237, CEps=0.9447, QPEps=0.3818)
+Iter 117 (1 active): +(NumConst=630, SV=237, CEps=0.5411, QPEps=0.3818)
+Iter 118 (63 active): .++.+++++++++++++++.+++++++++++++++++++..+++++.+++..+++++..++++*(NumConst=640, SV=239, CEps=1.1366, QPEps=0.3893)
+Iter 119 (10 active): ++++++++++(NumConst=612, SV=239, CEps=0.7374, QPEps=0.3893)
+Iter 120 (63 active): ++.+++++++++++++++++.++++++++.++++.+++++++++.++.+++++++++++++++*(NumConst=618, SV=243, CEps=1.0263, QPEps=0.3895)
+Iter 121 (6 active): +.++++*(NumConst=595, SV=239, CEps=0.8540, QPEps=0.3736)
+Iter 122 (1 active): +(NumConst=584, SV=239, CEps=0.7263, QPEps=0.3736)
+Iter 123 (63 active): ++++++++++++++++++++++++++++++++++++++++.++++++++++++++++++++++*(NumConst=585, SV=236, CEps=0.7894, QPEps=0.3878)
+Iter 124 (1 active): +(NumConst=581, SV=236, CEps=0.5353, QPEps=0.3878)
+Iter 125 (63 active): +++++++++++++++.+++++++++++.+++++++++++++++++++++++++++++++++++*(NumConst=583, SV=236, CEps=0.8677, QPEps=0.3752)
+Iter 126 (2 active): +.*(NumConst=583, SV=242, CEps=0.7870, QPEps=0.3794)
+Iter 127 (1 active): +(NumConst=583, SV=242, CEps=0.3683, QPEps=0.3794)
+Iter 128 (63 active): ++++++++.+++++++++++.+++.++++++++++++++++++++++++++++++++++++++*(NumConst=586, SV=241, CEps=0.9669, QPEps=0.3886)
+Iter 129 (3 active): +.+*(NumConst=582, SV=238, CEps=0.8143, QPEps=0.3844)
+Iter 130 (1 active): +(NumConst=580, SV=238, CEps=0.3792, QPEps=0.3844)
+Iter 131 (63 active): ++++++++++++.++++++++.+++++++++++++++++++++++++++++++++++++++++*(NumConst=582, SV=238, CEps=0.8517, QPEps=0.3804)
+Iter 132 (2 active): ++(NumConst=579, SV=238, CEps=0.3359, QPEps=0.3804)
+Iter 133 (63 active): ++++++++++++++++.++++++++++++++++++++++++++++++++++++++++++++++*(NumConst=580, SV=237, CEps=0.8069, QPEps=0.3889)
+Iter 134 (1 active): +(NumConst=576, SV=237, CEps=0.3675, QPEps=0.3889)
+Iter 135 (63 active): ++++++++++++++.++++++++++++++++++++++++++++++++++++++++++++++++*(NumConst=577, SV=237, CEps=0.7954, QPEps=0.3887)
+Iter 136 (1 active): +(NumConst=561, SV=237, CEps=0.3445, QPEps=0.3887)
+Iter 137 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=561, SV=237, CEps=0.7789, QPEps=0.3887)
+Setting current working precision to 0.390625.
+Iter 138 (63 active): +.+..+.....++++.....+++.+.++.+.+....+.+...+...+.++++++..+.++..+*(NumConst=595, SV=248, CEps=0.7789, QPEps=0.1921)
+Iter 139 (34 active): ..+.++.+.+++...+..+.+...+..+....+.*(NumConst=597, SV=253, CEps=1.1171, QPEps=0.1930)
+Iter 140 (21 active): +..+...++..++.+.+.+.+*(NumConst=594, SV=250, CEps=0.8528, QPEps=0.1859)
+Iter 141 (11 active): .++++..+.++*(NumConst=590, SV=250, CEps=0.5213, QPEps=0.1943)
+Iter 142 (4 active): ++++(NumConst=590, SV=250, CEps=0.3383, QPEps=0.1943)
+Iter 143 (63 active): .+++++++.++..+++.+++.+++.+.++.+.+++++++++++++++.+++++++++++++++*(NumConst=601, SV=250, CEps=0.8199, QPEps=0.1937)
+Iter 144 (11 active): +++.+.+++++*(NumConst=593, SV=251, CEps=0.6086, QPEps=0.1888)
+Iter 145 (2 active): ++(NumConst=588, SV=251, CEps=0.3139, QPEps=0.1888)
+Iter 146 (63 active): +++++++++++++++++++++++.+++.++++++++++++.+++.++++++++++++++++++*(NumConst=592, SV=253, CEps=0.5599, QPEps=0.1861)
+Iter 147 (4 active): ++.+*(NumConst=588, SV=249, CEps=0.4087, QPEps=0.1926)
+Iter 148 (1 active): +(NumConst=585, SV=249, CEps=0.2390, QPEps=0.1926)
+Iter 149 (63 active): ++++++++++.++++.+.++++++++++.++++++++++++++++++++++++++++++++++*(NumConst=589, SV=254, CEps=0.4109, QPEps=0.1931)
+Iter 150 (4 active): ++++(NumConst=584, SV=254, CEps=0.2154, QPEps=0.1931)
+Iter 151 (63 active): ++++++++++++.+++++++++++++.++++++++++++++++++++++++++++++++++++*(NumConst=586, SV=251, CEps=0.3995, QPEps=0.1879)
+Iter 152 (2 active): ++(NumConst=582, SV=251, CEps=0.2877, QPEps=0.1879)
+Iter 153 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=582, SV=251, CEps=0.3635, QPEps=0.1879)
+Setting current working precision to 0.195312.
+Iter 154 (63 active): .+...+...+...+.+.++.........+....+.+++..+..+.++.++.+.+.++..+..+*(NumConst=621, SV=278, CEps=0.3635, QPEps=0.0976)
+Iter 155 (39 active): .+...+.+........++++.........+.++....++*(NumConst=645, SV=287, CEps=0.5276, QPEps=0.0958)
+Iter 156 (27 active): ++..++..+...+...++.+...++.+*(NumConst=657, SV=292, CEps=0.3753, QPEps=0.0973)
+Iter 157 (15 active): ++.+..+.++.++..*(NumConst=662, SV=284, CEps=0.3083, QPEps=0.0971)
+Iter 158 (7 active): ..+.+.+*(NumConst=641, SV=288, CEps=0.2568, QPEps=0.0953)
+Iter 159 (4 active): .+.+*(NumConst=626, SV=287, CEps=0.2629, QPEps=0.0967)
+Iter 160 (2 active): +.*(NumConst=618, SV=283, CEps=0.2323, QPEps=0.0973)
+Iter 161 (1 active): +(NumConst=614, SV=283, CEps=0.1623, QPEps=0.0973)
+Iter 162 (63 active): +.+++++...+++++.++++++++++++.+++.+++++++.+.++.++.++.+++++++++++*(NumConst=626, SV=291, CEps=0.3493, QPEps=0.0941)
+Iter 163 (12 active): ++++++..++++*(NumConst=624, SV=290, CEps=0.2283, QPEps=0.0970)
+Iter 164 (2 active): ++(NumConst=618, SV=290, CEps=0.1242, QPEps=0.0970)
+Iter 165 (63 active): .+++++++++.++++++++.+++++++.++++++++++++++++.++++.+++++++++++++*(NumConst=624, SV=284, CEps=0.2902, QPEps=0.0948)
+Iter 166 (6 active): ++++++(NumConst=623, SV=284, CEps=0.1710, QPEps=0.0948)
+Iter 167 (63 active): +.++++++++++++++++++++++++++++.++++++++.+++++++++++++++++++++++*(NumConst=626, SV=291, CEps=0.2037, QPEps=0.0968)
+Iter 168 (3 active): +++(NumConst=626, SV=291, CEps=0.1628, QPEps=0.0968)
+Iter 169 (63 active): ++++++++++++++++++++.++++++++++++++++++++++++++++++++++++++++++*(NumConst=627, SV=287, CEps=0.2127, QPEps=0.0969)
+Iter 170 (1 active): +(NumConst=604, SV=287, CEps=0.1183, QPEps=0.0969)
+Iter 171 (63 active): ++++++++++++++++++++++++++.++++++++++++++++++++++++++++++++++++*(NumConst=605, SV=289, CEps=0.2096, QPEps=0.0927)
+Iter 172 (1 active): +(NumConst=591, SV=289, CEps=0.0815, QPEps=0.0927)
+Iter 173 (63 active): +++++++++++++++++++++++++++++++++++++++++++.+++++++++++++++++++*(NumConst=592, SV=285, CEps=0.2031, QPEps=0.0965)
+Iter 174 (1 active): +(NumConst=585, SV=285, CEps=0.0939, QPEps=0.0965)
+Iter 175 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++.+++++++++++++++*(NumConst=586, SV=288, CEps=0.2060, QPEps=0.0911)
+Iter 176 (1 active): +(NumConst=583, SV=288, CEps=0.1546, QPEps=0.0911)
+Iter 177 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++.+++++++*(NumConst=584, SV=285, CEps=0.2028, QPEps=0.0975)
+Iter 178 (1 active): +(NumConst=581, SV=285, CEps=0.0000, QPEps=0.0975)
+Iter 179 (63 active): +++++++.+++++++++++++++++++.+++++++.+++++++++++++++++++++++++++*(NumConst=584, SV=288, CEps=0.2715, QPEps=0.0961)
+Iter 180 (3 active): +++(NumConst=579, SV=288, CEps=0.1462, QPEps=0.0961)
+Iter 181 (63 active): ++++++++++++++.+++++++.++++++++.+++++++++++++++.+++.+++++.+++++*(NumConst=585, SV=287, CEps=0.2085, QPEps=0.0959)
+Iter 182 (6 active): ++++++(NumConst=581, SV=287, CEps=0.1554, QPEps=0.0959)
+Iter 183 (63 active): +++++++++++++++++++..++++++++++++++++++++++++++++++++++++++++++*(NumConst=583, SV=297, CEps=0.2205, QPEps=0.0969)
+Iter 184 (2 active): ++(NumConst=581, SV=297, CEps=0.1442, QPEps=0.0969)
+Iter 185 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=581, SV=297, CEps=0.1845, QPEps=0.0969)
+Setting current working precision to 0.1.
+Iter 186 (63 active): ..+.+++...+..+...++..+++++.....+.+++.++++.++.+.+..++++++.+.+...*(NumConst=611, SV=308, CEps=0.1845, QPEps=0.0499)
+Iter 187 (30 active): +++..++.+....+..++.++.++++.+++*(NumConst=617, SV=313, CEps=0.2514, QPEps=0.0492)
+Iter 188 (12 active): ..+++..+++.+*(NumConst=621, SV=317, CEps=0.1588, QPEps=0.0485)
+Iter 189 (5 active): .+++.*(NumConst=616, SV=314, CEps=0.1657, QPEps=0.0499)
+Iter 190 (2 active): ++(NumConst=600, SV=314, CEps=0.0679, QPEps=0.0499)
+Iter 191 (63 active): .++..++++++.+++++++.+...+.+++++++++++++++++++++.++++++.++.+++.+*(NumConst=613, SV=326, CEps=0.2144, QPEps=0.0489)
+Iter 192 (13 active): +++++++.+..++*(NumConst=601, SV=326, CEps=0.1371, QPEps=0.0494)
+Iter 193 (3 active): ++.*(NumConst=591, SV=325, CEps=0.1420, QPEps=0.0497)
+Iter 194 (1 active): +(NumConst=591, SV=325, CEps=0.0519, QPEps=0.0497)
+Iter 195 (63 active): ++++++.+.+++.++++++++++++++++++.+++++++++++.++.++++.+++++.+++++*(NumConst=599, SV=328, CEps=0.1358, QPEps=0.0497)
+Iter 196 (8 active): ++.+++++*(NumConst=597, SV=324, CEps=0.1203, QPEps=0.0497)
+Iter 197 (1 active): +(NumConst=597, SV=324, CEps=0.0942, QPEps=0.0497)
+Iter 198 (63 active): +++++++.++++++++++..++++++++.+++.+++++..++++++++.++++++++++++++*(NumConst=605, SV=328, CEps=0.1418, QPEps=0.0499)
+Iter 199 (8 active): ++++++++(NumConst=600, SV=328, CEps=0.0802, QPEps=0.0499)
+Iter 200 (63 active): +++++++++++++++++++++++++++.++++++++++++++++.++++++++++++.+++.+*(NumConst=604, SV=332, CEps=0.1328, QPEps=0.0498)
+Iter 201 (4 active): ++++(NumConst=599, SV=332, CEps=0.0933, QPEps=0.0498)
+Iter 202 (63 active): ++++++++++.++++++++++++++++++.+++++++++++++++++++++++++++++++++*(NumConst=601, SV=330, CEps=0.1114, QPEps=0.0497)
+Iter 203 (2 active): ++(NumConst=598, SV=330, CEps=0.0741, QPEps=0.0497)
+Iter 204 (63 active): +++.+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*(NumConst=599, SV=331, CEps=0.1058, QPEps=0.0492)
+Iter 205 (1 active): +(NumConst=597, SV=331, CEps=0.0450, QPEps=0.0492)
+Iter 206 (63 active): ++++++++++++.++++++++++++++++++++++++++++++++++++++++++++++++++*(NumConst=598, SV=331, CEps=0.1018, QPEps=0.0494)
+Iter 207 (1 active): +(NumConst=597, SV=331, CEps=0.0394, QPEps=0.0494)
+Iter 208 (63 active): ++++++++++++++.++++++++++++++++++++++++++++++++++++++++++++++++*(NumConst=598, SV=334, CEps=0.1026, QPEps=0.0500)
+Iter 209 (1 active): +(NumConst=596, SV=334, CEps=0.0483, QPEps=0.0500)
+Iter 210 (63 active): ++++++++++++++++++++++.++++++++++++++++++++++++++++++++++++++++*(NumConst=597, SV=333, CEps=0.1006, QPEps=0.0498)
+Iter 211 (1 active): +(NumConst=591, SV=333, CEps=0.0225, QPEps=0.0498)
+Iter 212 (63 active): ++++++++++++++++++++.++++++++++++++++++++++++++++++++++++++++++*(NumConst=592, SV=330, CEps=0.1055, QPEps=0.0488)
+Iter 213 (1 active): +(NumConst=587, SV=330, CEps=0.0462, QPEps=0.0488)
+Iter 214 (63 active): +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++(NumConst=587, SV=330, CEps=0.0927, QPEps=0.0488)
+Final epsilon on KKT-Conditions: 0.10000
+Upper bound on duality gap: 0.10589
+Dual objective value: dval=17.71004
+Total number of constraints in final working set: 587 (of 1667)
+Number of iterations: 214
+Number of calls to 'find_most_violated_constraint': 6455
+Number of SV: 330 
+Number of non-zero slack variables: 58 (out of 63)
+Norm of weight vector: |w|=4.55631
+Norm. sum of slack variables (on working set): sum(xi_i)/n=7.34328
+Norm of longest difference vector: ||Psi(x,y)-Psi(x,ybar)||=3507.85775
+Runtime in cpu-seconds: 2358.22 (28.67% for QP, 68.46% for Argmax, 2.75% for Psi, 0.04% for init)
+Writing learned model...done
+
+[[0.   1.17 1.2  1.68 1.67 1.7  1.45 1.65 1.58 1.64 1.59 1.63]
+ [1.17 0.   1.3  1.62 1.6  1.64 1.28 1.47 1.43 1.5  1.46 1.5 ]
+ [1.2  1.3  0.   1.88 1.87 1.89 1.59 1.76 1.66 1.72 1.65 1.69]
+ [1.68 1.62 1.88 0.   1.   1.11 1.6  1.72 1.73 1.74 1.82 1.8 ]
+ [1.67 1.6  1.87 1.   0.   1.16 1.58 1.71 1.73 1.75 1.82 1.8 ]
+ [1.7  1.64 1.89 1.11 1.16 0.   1.63 1.74 1.74 1.72 1.84 1.78]
+ [1.45 1.28 1.59 1.6  1.58 1.63 0.   1.27 1.26 1.4  1.32 1.42]
+ [1.65 1.47 1.76 1.72 1.71 1.74 1.27 0.   1.37 1.33 1.44 1.35]
+ [1.58 1.43 1.66 1.73 1.73 1.74 1.26 1.37 0.   1.38 1.11 1.39]
+ [1.64 1.5  1.72 1.74 1.75 1.72 1.4  1.33 1.38 0.   1.46 1.05]
+ [1.59 1.46 1.65 1.82 1.82 1.84 1.32 1.44 1.11 1.46 0.   1.44]
+ [1.63 1.5  1.69 1.8  1.8  1.78 1.42 1.35 1.39 1.05 1.44 0.  ]]
+Reading model...done.
+Reading test examples..25 examples read in multiclass_seq.py
+done.
+Classifying test examples..done
+Runtime (without IO) in cpu-seconds: 5.48
+Average loss on test set: 5.2524
+Zero/one-error on test set: 68.00% (8 correct, 17 incorrect, 25 total)
+25 sequences, micro-average error: 0.0415275142315
+
+test loss: 0.0415275142315

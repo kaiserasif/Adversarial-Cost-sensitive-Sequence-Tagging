@@ -1,8 +1,4 @@
 .DS_Store
 .ipynb_checkpoints
-data
-output
 *.pyc
 *.log
-hapt_experiment/svm_experiment/svm-python-v204/svm_python_classify
-hapt_experiment/svm_experiment/svm-python-v204/svm_python_learn
